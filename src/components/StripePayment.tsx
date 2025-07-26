@@ -11,7 +11,19 @@ import { toast } from "sonner";
 import { Loader2, CreditCard as CardIcon, ShieldCheck } from 'lucide-react';
 
 // Load Stripe outside of a component's render to avoid recreating the Stripe object on every render
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_live_51RoprfEr0BqcN5ebtki23uHs0xwO60NTM3SKKmZuSs4ddEhtyAt5t44eXIs5RJEy9MOpvlf6jHh0EPZBkMAti6XV003VE9YXm7');
+const getStripePublishableKey = () => {
+  const envKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+  console.log('Environment key:', envKey ? `${envKey.substring(0, 20)}...` : 'NOT FOUND');
+  
+  if (!envKey) {
+    console.error('VITE_STRIPE_PUBLISHABLE_KEY not found in environment variables');
+    throw new Error('Stripe publishable key not configured');
+  }
+  
+  return envKey;
+};
+
+const stripePromise = loadStripe(getStripePublishableKey());
 
 interface StripePaymentProps {
   onSuccess: (paymentMethod: any, details: any) => void;
