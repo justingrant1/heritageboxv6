@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import StripePayment from '@/components/StripePayment';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { trackSuccessfulPurchase } from '@/utils/googleAdsTracking';
 import { sendEmailToHeritageBox, generateOrderId } from '@/utils/emailUtils';
 import { sendOrderToAirtable, parseAddOnDetails, parseSpeedDetails } from '@/utils/airtableUtils';
 import { 
@@ -509,6 +510,15 @@ const Checkout = () => {
       }
 
       console.log('💳 PAYMENT SUCCESS - Payment processed, now sending email and saving to Airtable');
+
+      // Track Google Ads conversion
+      trackSuccessfulPurchase({
+        transactionId: result.paymentIntent?.id || `stripe_${Date.now()}`,
+        totalAmount: parseFloat(calculateTotal()),
+        packageType: packageType,
+        packagePrice: packageDetails.numericPrice,
+        addOns: currentAddOnsArray
+      });
 
       // Prepare order data for both email and Airtable
       const selectedDigitizingOption = getSelectedDigitizingOption();
