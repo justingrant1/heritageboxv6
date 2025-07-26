@@ -12,7 +12,7 @@ import {
   AlertCircle, ArrowRight, CreditCard as PaymentIcon,
   Loader2, Tag, Star, Shield, Award
 } from 'lucide-react';
-import SquarePayment from '@/components/SquarePayment';
+import StripePayment from '@/components/StripePayment';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { sendEmailToHeritageBox, generateOrderId } from '@/utils/emailUtils';
 import { sendOrderToAirtable, parseAddOnDetails, parseSpeedDetails } from '@/utils/airtableUtils';
@@ -490,13 +490,13 @@ const Checkout = () => {
 
       console.log('💳 PAYMENT SUCCESS - Complete order details for payment API:', completeOrderDetails);
       
-      const response = await fetch('/api/process-payment', {
+      const response = await fetch('/api/process-stripe-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          token,
+          paymentMethod: token,
           amount: parseFloat(calculateTotal()),
           orderDetails: completeOrderDetails
         }),
@@ -1205,7 +1205,7 @@ const Checkout = () => {
                       )}
                     </div>
                     
-                    <SquarePayment 
+                    <StripePayment 
                       onSuccess={handlePaymentSuccess}
                       buttonColorClass={getButtonClass()}
                       isProcessing={isProcessing}

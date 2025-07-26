@@ -12,7 +12,7 @@ function logEvent(event: string, data: any) {
 }
 
 export default async function handler(request: Request) {
-    logEvent('request_received', {
+    logEvent('stripe_request_received', {
         method: request.method,
         url: request.url,
         headers: Object.fromEntries(request.headers.entries())
@@ -28,17 +28,17 @@ export default async function handler(request: Request) {
 
     try {
         const body = await request.json();
-        logEvent('request_body_parsed', {
-            hasToken: !!body.token,
+        logEvent('stripe_request_body_parsed', {
+            hasPaymentMethod: !!body.paymentMethod,
             amount: body.amount,
             orderDetails: body.orderDetails
         });
 
-        const {token, amount, orderDetails} = body;
+        const {paymentMethod, amount, orderDetails} = body;
 
-        if (!token || !amount) {
-            logEvent('validation_failed', {
-                missingToken: !token,
+        if (!paymentMethod || !amount) {
+            logEvent('stripe_validation_failed', {
+                missingPaymentMethod: !paymentMethod,
                 missingAmount: !amount
             });
             return new Response(JSON.stringify({success: false, error: 'Missing required fields'}), {
@@ -47,97 +47,103 @@ export default async function handler(request: Request) {
             });
         }
 
-        const squareAccessToken = process.env.SQUARE_ACCESS_TOKEN;
-        const SQUARE_LOCATION_ID = process.env.SQUARE_LOCATION_ID;
-        const SQUARE_API_URL = process.env.SQUARE_API_URL;
+        const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
-        logEvent('environment_check', {
-            hasAccessToken: !!squareAccessToken,
-            hasLocationId: !!SQUARE_LOCATION_ID,
-            hasApiUrl: !!SQUARE_API_URL,
+        logEvent('stripe_environment_check', {
+            hasSecretKey: !!stripeSecretKey,
             nodeEnv: process.env.NODE_ENV
         });
 
-        if (!squareAccessToken) {
-            logEvent('configuration_error', {error: 'SQUARE_ACCESS_TOKEN not configured'});
-            return new Response(JSON.stringify({success: false, error: 'Payment service not configured - missing access token'}), {
+        if (!stripeSecretKey) {
+            logEvent('stripe_configuration_error', {error: 'STRIPE_SECRET_KEY not configured'});
+            return new Response(JSON.stringify({success: false, error: 'Payment service not configured - missing secret key'}), {
                 status: 500,
                 headers: {'Content-Type': 'application/json'}
             });
         }
 
-        if (!SQUARE_LOCATION_ID) {
-            logEvent('configuration_error', {error: 'SQUARE_LOCATION_ID not configured'});
-            return new Response(JSON.stringify({success: false, error: 'Payment service not configured - missing location ID'}), {
-                status: 500,
-                headers: {'Content-Type': 'application/json'}
-            });
-        }
-
-        if (!SQUARE_API_URL) {
-            logEvent('configuration_error', {error: 'SQUARE_API_URL not configured'});
-            return new Response(JSON.stringify({success: false, error: 'Payment service not configured - missing API URL'}), {
-                status: 500,
-                headers: {'Content-Type': 'application/json'}
-            });
-        }
-
-        logEvent('square_payment_initiated', {
+        logEvent('stripe_payment_initiated', {
             amount,
-            locationId: SQUARE_LOCATION_ID,
+            paymentMethodId: paymentMethod.id,
             environment: process.env.NODE_ENV
         });
 
-        const response = await fetch(`${SQUARE_API_URL}/v2/payments`, {
+        // Create payment intent with Stripe
+        const response = await fetch('https://api.stripe.com/v1/payment_intents', {
             method: 'POST',
             headers: {
-                'Square-Version': '2024-02-15',
-                'Authorization': `Bearer ${squareAccessToken}`,
-                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${stripeSecretKey}`,
+                'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: JSON.stringify({
-                source_id: token,
-                amount_money: {
-                    amount: Math.round(amount * 100), // Convert to cents
-                    currency: 'USD'
-                },
-                location_id: SQUARE_LOCATION_ID,
-                idempotency_key: crypto.randomUUID()
+            body: new URLSearchParams({
+                amount: Math.round(amount * 100).toString(), // Convert to cents
+                currency: 'usd',
+                payment_method: paymentMethod.id,
+                confirm: 'true',
+                return_url: 'https://heritagebox.com/order-confirmation',
+                'metadata[account_id]': 'acct_1RoprfEr0BqcN5eb'
             })
         });
 
         const result = await response.json();
-        logEvent('square_response_received', {
+        logEvent('stripe_response_received', {
             status: response.status,
             ok: response.ok,
-            hasErrors: !!result.errors,
-            errorDetails: result.errors,
+            hasError: !!result.error,
+            errorDetails: result.error,
+            paymentIntentStatus: result.status,
             fullResponse: result
         });
 
         if (!response.ok) {
-            // Log more detailed error information
-            logEvent('square_api_error', {
+            logEvent('stripe_api_error', {
                 status: response.status,
-                errors: result.errors,
+                error: result.error,
                 fullErrorResponse: result
             });
             
-            const errorMessage = result.errors?.[0]?.detail || result.errors?.[0]?.code || 'Payment failed';
+            const errorMessage = result.error?.message || result.error?.code || 'Payment failed';
             throw new Error(errorMessage);
         }
 
-        logEvent('payment_successful', {
-            paymentId: result.payment?.id,
-            amount: result.payment?.amount_money?.amount,
-            status: result.payment?.status
+        // Check if payment requires additional action
+        if (result.status === 'requires_action' || result.status === 'requires_source_action') {
+            logEvent('stripe_payment_requires_action', {
+                paymentIntentId: result.id,
+                clientSecret: result.client_secret
+            });
+            
+            return new Response(JSON.stringify({
+                success: false,
+                requiresAction: true,
+                clientSecret: result.client_secret,
+                error: 'Payment requires additional authentication'
+            }), {
+                status: 200,
+                headers: {'Content-Type': 'application/json'}
+            });
+        }
+
+        if (result.status !== 'succeeded') {
+            logEvent('stripe_payment_not_succeeded', {
+                paymentIntentId: result.id,
+                status: result.status
+            });
+            
+            throw new Error(`Payment ${result.status}`);
+        }
+
+        logEvent('stripe_payment_successful', {
+            paymentIntentId: result.id,
+            amount: result.amount,
+            status: result.status
         });
 
         // Save the order to Airtable
         if (orderDetails) {
             try {
                 logEvent('airtable_integration_started', {
-                    paymentId: result.payment?.id,
+                    paymentIntentId: result.id,
                     hasOrderDetails: !!orderDetails
                 });
 
@@ -152,26 +158,26 @@ export default async function handler(request: Request) {
                     },
                     body: JSON.stringify({
                         orderDetails,
-                        paymentId: result.payment?.id,
-                        paymentStatus: result.payment?.status,
-                        actualAmount: result.payment?.amount_money?.amount / 100 // Convert back from cents
+                        paymentId: result.id,
+                        paymentStatus: result.status,
+                        actualAmount: result.amount / 100 // Convert back from cents
                     })
                 });
 
                 if (airtableResponse.ok) {
                     logEvent('airtable_integration_success', {
-                        paymentId: result.payment?.id
+                        paymentIntentId: result.id
                     });
                 } else {
                     const airtableError = await airtableResponse.text();
                     logEvent('airtable_integration_failed', {
-                        paymentId: result.payment?.id,
+                        paymentIntentId: result.id,
                         error: airtableError
                     });
                 }
             } catch (error) {
                 logEvent('airtable_integration_error', {
-                    paymentId: result.payment?.id,
+                    paymentIntentId: result.id,
                     error: error.message
                 });
                 // Don't fail the payment if Airtable fails
@@ -180,13 +186,13 @@ export default async function handler(request: Request) {
 
         return new Response(JSON.stringify({
             success: true,
-            payment: result.payment
+            paymentIntent: result
         }), {
             status: 200,
             headers: {'Content-Type': 'application/json'}
         });
     } catch (error) {
-        logEvent('payment_error', {
+        logEvent('stripe_payment_error', {
             error: error.message,
             stack: error.stack,
             name: error.name
