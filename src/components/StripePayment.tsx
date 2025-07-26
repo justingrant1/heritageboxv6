@@ -135,8 +135,24 @@ const CheckoutForm = ({ onSuccess, buttonColorClass, isProcessing, amount }: Str
         
         {/* Card Input Container */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="p-4 border-2 border-gray-200 rounded-xl focus-within:border-primary transition-colors">
+          {/* Instructions for card input */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-blue-800 font-medium">
+              💳 Enter your card number, expiry date, CVC, and ZIP code in the field below
+            </p>
+            <p className="text-xs text-blue-600 mt-1">
+              All fields are required. Make sure to complete the ZIP code field at the end.
+            </p>
+          </div>
+          
+          <div className="p-4 border-2 border-gray-200 rounded-xl focus-within:border-primary transition-colors bg-white">
             <CardElement options={cardElementOptions} />
+          </div>
+          
+          {/* Additional ZIP code reminder */}
+          <div className="flex items-center gap-2 text-sm text-gray-600 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+            <span className="text-yellow-600">⚠️</span>
+            <span>Don't forget to enter your ZIP code in the card field above</span>
           </div>
           
           {error && (

@@ -65,24 +65,131 @@ export default async function handler(request: Request) {
         logEvent('stripe_payment_initiated', {
             amount,
             paymentMethodId: paymentMethod.id,
-            environment: process.env.NODE_ENV
+            environment: process.env.NODE_ENV,
+            hasOrderDetails: !!orderDetails,
+            customerEmail: orderDetails?.customerInfo?.email
         });
 
-        // Create payment intent with Stripe
+        // Step 1: Create or retrieve Stripe customer
+        let stripeCustomerId = null;
+        if (orderDetails?.customerInfo) {
+            const customerInfo = orderDetails.customerInfo;
+            
+            logEvent('stripe_customer_creation_started', {
+                email: customerInfo.email,
+                name: customerInfo.fullName
+            });
+
+            const customerResponse = await fetch('https://api.stripe.com/v1/customers', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${stripeSecretKey}`,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    email: customerInfo.email,
+                    name: customerInfo.fullName,
+                    phone: customerInfo.phone || '',
+                    'address[line1]': customerInfo.address || '',
+                    'address[city]': customerInfo.city || '',
+                    'address[state]': customerInfo.state || '',
+                    'address[postal_code]': customerInfo.zipCode || '',
+                    'address[country]': 'US',
+                    'metadata[first_name]': customerInfo.firstName,
+                    'metadata[last_name]': customerInfo.lastName
+                })
+            });
+
+            if (customerResponse.ok) {
+                const customer = await customerResponse.json();
+                stripeCustomerId = customer.id;
+                logEvent('stripe_customer_created', {
+                    customerId: stripeCustomerId,
+                    email: customerInfo.email
+                });
+            } else {
+                const customerError = await customerResponse.json();
+                logEvent('stripe_customer_creation_failed', {
+                    error: customerError,
+                    email: customerInfo.email
+                });
+                // Continue without customer - payment can still work
+            }
+        }
+
+        // Step 2: Prepare comprehensive metadata
+        const metadata: { [key: string]: string } = {
+            account_id: 'acct_1RoprfEr0BqcN5eb'
+        };
+
+        if (orderDetails) {
+            // Customer information
+            if (orderDetails.customerInfo) {
+                metadata.customer_name = orderDetails.customerInfo.fullName;
+                metadata.customer_email = orderDetails.customerInfo.email;
+                metadata.customer_phone = orderDetails.customerInfo.phone;
+                metadata.customer_address = `${orderDetails.customerInfo.address}, ${orderDetails.customerInfo.city}, ${orderDetails.customerInfo.state} ${orderDetails.customerInfo.zipCode}`;
+            }
+
+            // Order information
+            if (orderDetails.orderDetails) {
+                metadata.package_type = orderDetails.orderDetails.package;
+                metadata.package_price = orderDetails.orderDetails.packagePrice;
+                metadata.subtotal = orderDetails.orderDetails.subtotal;
+                metadata.total_amount = orderDetails.orderDetails.totalAmount;
+                metadata.digitizing_speed = orderDetails.orderDetails.digitizingSpeed;
+                metadata.digitizing_time = orderDetails.orderDetails.digitizingTime;
+                
+                if (orderDetails.orderDetails.couponCode && orderDetails.orderDetails.couponCode !== 'None') {
+                    metadata.coupon_code = orderDetails.orderDetails.couponCode;
+                    metadata.discount_percent = orderDetails.orderDetails.discountPercent?.toString();
+                    metadata.discount_amount = orderDetails.orderDetails.discountAmount;
+                }
+
+                if (orderDetails.orderDetails.addOns && orderDetails.orderDetails.addOns.length > 0) {
+                    metadata.add_ons = orderDetails.orderDetails.addOns.join('; ');
+                }
+            }
+        }
+
+        // Step 3: Create payment intent with comprehensive data
+        const paymentIntentParams = new URLSearchParams({
+            amount: Math.round(amount * 100).toString(), // Convert to cents
+            currency: 'usd',
+            payment_method: paymentMethod.id,
+            confirm: 'true',
+            return_url: 'https://heritagebox.com/order-confirmation',
+            description: orderDetails?.orderDetails?.package 
+                ? `Heritage Box ${orderDetails.orderDetails.package} Package - ${orderDetails.orderDetails.digitizingSpeed} Processing`
+                : 'Heritage Box Memory Digitization Service'
+        });
+
+        // Add customer if created successfully
+        if (stripeCustomerId) {
+            paymentIntentParams.append('customer', stripeCustomerId);
+            paymentIntentParams.append('receipt_email', orderDetails.customerInfo.email);
+        }
+
+        // Add all metadata
+        Object.entries(metadata).forEach(([key, value]) => {
+            if (value) {
+                paymentIntentParams.append(`metadata[${key}]`, value.toString());
+            }
+        });
+
+        logEvent('stripe_payment_intent_creation', {
+            hasCustomer: !!stripeCustomerId,
+            metadataKeys: Object.keys(metadata),
+            description: paymentIntentParams.get('description')
+        });
+
         const response = await fetch('https://api.stripe.com/v1/payment_intents', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${stripeSecretKey}`,
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: new URLSearchParams({
-                amount: Math.round(amount * 100).toString(), // Convert to cents
-                currency: 'usd',
-                payment_method: paymentMethod.id,
-                confirm: 'true',
-                return_url: 'https://heritagebox.com/order-confirmation',
-                'metadata[account_id]': 'acct_1RoprfEr0BqcN5eb'
-            })
+            body: paymentIntentParams
         });
 
         const result = await response.json();
