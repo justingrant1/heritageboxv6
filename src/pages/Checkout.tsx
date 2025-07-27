@@ -16,7 +16,7 @@ import StripePayment from '@/components/StripePayment';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { trackSuccessfulPurchase } from '@/utils/googleAdsTracking';
 import { sendEmailToHeritageBox, generateOrderId } from '@/utils/emailUtils';
-import { sendOrderToAirtable, parseAddOnDetails, parseSpeedDetails } from '@/utils/airtableUtils';
+import { parseAddOnDetails, parseSpeedDetails } from '@/utils/airtableUtils';
 import { 
   Form,
   FormControl,
@@ -586,13 +586,44 @@ const Checkout = () => {
       // Send order details to Formspree
       await sendOrderDetailsToFormspree(orderData, "Order Completed");
 
-      // Send order details to Airtable
+      // Send order details to our API (includes Airtable save + shipping labels)
       try {
-        await sendOrderToAirtable(orderData);
-        console.log('✅ AIRTABLE SUCCESS - Order saved to Airtable');
-      } catch (airtableError) {
-        console.error('❌ AIRTABLE ERROR - Failed to save to Airtable:', airtableError);
-        // Don't fail the checkout process if Airtable fails
+        console.log('📦 SHIPPING - Calling create-order API with shipping labels...');
+        const createOrderResponse = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderData),
+        });
+
+        const createOrderResult = await createOrderResponse.json();
+        
+        if (createOrderResult.success) {
+          console.log('✅ ORDER SUCCESS - Order saved to Airtable with shipping labels:', createOrderResult);
+          
+          // Show success message with shipping info if available
+          if (createOrderResult.shipping?.labelsGenerated) {
+            toast.success("Order complete with shipping labels!", {
+              description: "Your order has been saved and shipping labels have been generated automatically.",
+              position: "top-center",
+            });
+          }
+        } else {
+          console.error('❌ ORDER ERROR - Failed to create order:', createOrderResult.error);
+          // Still show success to user since payment worked, but log the issue
+          toast.success("Payment successful!", {
+            description: "Your order has been processed. If there are any shipping issues, we'll contact you.",
+            position: "top-center",
+          });
+        }
+      } catch (orderError) {
+        console.error('❌ ORDER ERROR - Failed to call create-order API:', orderError);
+        // Still show success to user since payment worked, but log the issue
+        toast.success("Payment successful!", {
+          description: "Your order has been processed. If there are any shipping issues, we'll contact you.",
+          position: "top-center",
+        });
       }
 
       toast.success("Payment successful!", {
@@ -725,13 +756,44 @@ const Checkout = () => {
       // Send order details to Formspree
       await sendOrderDetailsToFormspree(orderData, "Order Completed");
 
-      // Send order details to Airtable
+      // Send order details to our API (includes Airtable save + shipping labels)
       try {
-        await sendOrderToAirtable(orderData);
-        console.log('✅ AIRTABLE SUCCESS - PayPal order saved to Airtable');
-      } catch (airtableError) {
-        console.error('❌ AIRTABLE ERROR - Failed to save PayPal order to Airtable:', airtableError);
-        // Don't fail the checkout process if Airtable fails
+        console.log('📦 SHIPPING - Calling create-order API with shipping labels for PayPal order...');
+        const createOrderResponse = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderData),
+        });
+
+        const createOrderResult = await createOrderResponse.json();
+        
+        if (createOrderResult.success) {
+          console.log('✅ ORDER SUCCESS - PayPal order saved to Airtable with shipping labels:', createOrderResult);
+          
+          // Show success message with shipping info if available
+          if (createOrderResult.shipping?.labelsGenerated) {
+            toast.success("PayPal order complete with shipping labels!", {
+              description: "Your order has been saved and shipping labels have been generated automatically.",
+              position: "top-center",
+            });
+          }
+        } else {
+          console.error('❌ ORDER ERROR - Failed to create PayPal order:', createOrderResult.error);
+          // Still show success to user since payment worked, but log the issue
+          toast.success("PayPal payment successful!", {
+            description: "Your order has been processed. If there are any shipping issues, we'll contact you.",
+            position: "top-center",
+          });
+        }
+      } catch (orderError) {
+        console.error('❌ ORDER ERROR - Failed to call create-order API for PayPal:', orderError);
+        // Still show success to user since payment worked, but log the issue
+        toast.success("PayPal payment successful!", {
+          description: "Your order has been processed. If there are any shipping issues, we'll contact you.",
+          position: "top-center",
+        });
       }
       
       setIsProcessing(false);
