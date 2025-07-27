@@ -402,6 +402,53 @@ export const testAirtableConnection = async (): Promise<boolean> => {
   }
 };
 
+// Function to update order with shipping information
+export const updateOrderWithShipping = async (orderNumber: string, shippingData: any): Promise<boolean> => {
+  if (!base) {
+    console.warn('⚠️ AIRTABLE WARNING - Base not initialized');
+    return false;
+  }
+
+  try {
+    console.log('📦 AIRTABLE - Updating order with shipping data:', orderNumber);
+
+    // Find the order by order number
+    const existingRecords = await base(ORDERS_TABLE).select({
+      filterByFormula: `{Order Number} = "${orderNumber}"`,
+      maxRecords: 1
+    }).firstPage();
+
+    if (existingRecords.length === 0) {
+      console.error('❌ AIRTABLE ERROR - Order not found:', orderNumber);
+      return false;
+    }
+
+    const orderId = existingRecords[0].id;
+    console.log('✅ AIRTABLE - Found order:', orderId);
+
+    // Update the order with shipping information using the correct field names
+    await base(ORDERS_TABLE).update([{
+      id: orderId,
+      fields: {
+        'Label 1 Tracking': shippingData.Label_1_Tracking,
+        'Label 1 URL': shippingData.Label_1_URL,
+        'Label 2 Tracking': shippingData.Label_2_Tracking,
+        'Label 2 URL': shippingData.Label_2_URL,
+        'Label 3 Tracking': shippingData.Label_3_Tracking,
+        'Label 3 URL': shippingData.Label_3_URL,
+        'Status': shippingData.Shipping_Status || 'Labels Generated'
+      }
+    }]);
+
+    console.log('✅ AIRTABLE - Order updated with shipping data');
+    return true;
+
+  } catch (error) {
+    console.error('❌ AIRTABLE ERROR - Failed to update order with shipping:', error);
+    return false;
+  }
+};
+
 // Export the table IDs for direct access if needed
 export const AIRTABLE_TABLES = {
   CUSTOMERS: CUSTOMERS_TABLE,
