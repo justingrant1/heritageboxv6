@@ -84,7 +84,7 @@ const AboutUs = () => {
             </div>
             <div className="rounded-lg overflow-hidden shadow-xl">
               <img 
-                src="/lovable-uploads/c9c3910b-c1ef-4cb5-9a7e-e1df6afdf7f3.png" 
+                src="/family-memories-photo.jpg" 
                 alt="Multi-generational family sharing memories while looking through a photo album with digitized photos from HeritageBox services" 
                 className="w-full h-auto"
                 loading="eager"
