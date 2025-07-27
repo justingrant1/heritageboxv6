@@ -33,11 +33,7 @@ if (AIRTABLE_API_KEY && AIRTABLE_BASE_ID) {
 
 // Generate unique order number starting from 100420, incrementing by 5
 const generateOrderNumber = async (): Promise<string> => {
-    if (!base) {
-        logEvent('airtable_not_initialized_in_generate_order', {});
-        const timestamp = Date.now().toString();
-        return `E${timestamp.slice(-5)}`;
-    }
+    if (!base) return `100420`; // Fallback if no database connection
     
     try {
         // Get the latest order to find the current highest order number
