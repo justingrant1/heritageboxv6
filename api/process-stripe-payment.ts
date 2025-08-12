@@ -15,7 +15,7 @@ export default async function handler(request: Request) {
     logEvent('stripe_request_received', {
         method: request.method,
         url: request.url,
-        headers: Object.fromEntries(request.headers.entries())
+        headers: request.headers
     });
 
     if (request.method !== 'POST') {
