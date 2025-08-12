@@ -264,9 +264,10 @@ export default async function handler(request: any) {
                     hasOrderDetails: !!orderDetails
                 });
 
-                // Get the base URL from the current request
-                const url = new URL(request.url);
-                const baseUrl = `${url.protocol}//${url.host}`;
+                // Get the base URL from the current request headers
+                const host = request.headers.host || request.headers['x-forwarded-host'] || 'www.heritagebox.com';
+                const protocol = request.headers['x-forwarded-proto'] || 'https';
+                const baseUrl = `${protocol}://${host}`;
                 
                 const airtableResponse = await fetch(`${baseUrl}/api/create-order`, {
                     method: 'POST',
