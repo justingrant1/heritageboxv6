@@ -620,7 +620,35 @@ const Checkout = () => {
       // Send order details to Formspree
       await sendOrderDetailsToFormspree(orderData, "Order Completed");
 
-      // Order saved to Airtable via email notification - no need for separate API call
+      // Now save to Airtable (after email is sent so customer gets confirmation even if this fails)
+      try {
+        console.log('💾 AIRTABLE - Saving order to Airtable...');
+        const createOrderResponse = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderDetails: orderData,
+            paymentId: result.paymentIntent?.id || `stripe_${Date.now()}`,
+            paymentStatus: 'succeeded',
+            actualAmount: parseFloat(calculateTotal())
+          }),
+        });
+
+        const createOrderResult = await createOrderResponse.json();
+        
+        if (createOrderResult.success) {
+          console.log('✅ AIRTABLE SUCCESS - Order saved to Airtable:', createOrderResult);
+        } else {
+          console.error('❌ AIRTABLE ERROR - Failed to save to Airtable:', createOrderResult.error);
+          // Don't show error to user since payment and email worked
+        }
+      } catch (airtableError) {
+        console.error('❌ AIRTABLE ERROR - Failed to call create-order API:', airtableError);
+        // Don't show error to user since payment and email worked
+      }
+
       console.log('✅ ORDER SUCCESS - Order processed and email sent successfully');
 
       toast.success("Payment successful!", {
