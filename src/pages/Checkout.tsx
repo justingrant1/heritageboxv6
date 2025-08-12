@@ -628,7 +628,12 @@ const Checkout = () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(orderData),
+          body: JSON.stringify({
+            orderDetails: orderData,
+            paymentId: result.paymentIntent?.id || `stripe_${Date.now()}`,
+            paymentStatus: 'succeeded',
+            actualAmount: parseFloat(calculateTotal())
+          }),
         });
 
         const createOrderResult = await createOrderResponse.json();
@@ -798,7 +803,12 @@ const Checkout = () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(orderData),
+          body: JSON.stringify({
+            orderDetails: orderData,
+            paymentId: `paypal_${Date.now()}`,
+            paymentStatus: 'succeeded',
+            actualAmount: parseFloat(calculateTotal())
+          }),
         });
 
         const createOrderResult = await createOrderResponse.json();
