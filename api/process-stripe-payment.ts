@@ -1,5 +1,5 @@
 export const config = {
-    runtime: 'edge',
+    runtime: 'nodejs',
 };
 
 // Helper function for structured logging
