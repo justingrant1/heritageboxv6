@@ -1,4 +1,21 @@
 {
+  "functions": {
+    "api/process-stripe-payment.ts": {
+      "maxDuration": 60
+    },
+    "api/process-stripe-payment-simple.ts": {
+      "maxDuration": 30
+    },
+    "api/create-order.ts": {
+      "maxDuration": 30
+    },
+    "api/generate-shipping-labels.ts": {
+      "maxDuration": 30
+    },
+    "api/update-shipping-airtable.ts": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
       "source": "/((?!api/|_next/|static/|assets/|favicon\\.ico|sitemap\\.xml|robots\\.txt|site\\.webmanifest|lovable-uploads/).*)",
