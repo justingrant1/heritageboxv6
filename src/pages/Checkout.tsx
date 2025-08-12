@@ -491,22 +491,56 @@ const Checkout = () => {
 
       console.log('💳 PAYMENT SUCCESS - Complete order details for payment API:', completeOrderDetails);
       
-      const response = await fetch('/api/process-stripe-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          paymentMethod: token,
-          amount: parseFloat(calculateTotal()),
-          orderDetails: completeOrderDetails
-        }),
-      });
+      // Add timeout to the API call to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      const result = await response.json();
+      let response;
+      let result;
+      
+      try {
+        console.log('💳 PAYMENT API - Making request to /api/process-stripe-payment...');
+        
+        response = await fetch('/api/process-stripe-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            paymentMethod: token,
+            amount: parseFloat(calculateTotal()),
+            orderDetails: completeOrderDetails
+          }),
+          signal: controller.signal
+        });
 
-      if (!result.success) {
-        throw new Error(result.error || 'Payment failed');
+        clearTimeout(timeoutId);
+        
+        console.log('💳 PAYMENT API - Response status:', response.status);
+        console.log('💳 PAYMENT API - Response headers:', Object.fromEntries(response.headers.entries()));
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('💳 PAYMENT API - Error response:', errorText);
+          throw new Error(`Payment API error: ${response.status} - ${errorText}`);
+        }
+
+        result = await response.json();
+        console.log('💳 PAYMENT API - Success response:', result);
+
+        if (!result.success) {
+          throw new Error(result.error || 'Payment failed');
+        }
+      } catch (error) {
+        clearTimeout(timeoutId);
+        
+        if (error.name === 'AbortError') {
+          console.error('💳 PAYMENT API - Request timed out after 30 seconds');
+          throw new Error('Payment processing timed out. Please try again.');
+        }
+        
+        console.error('💳 PAYMENT API - Request failed:', error);
+        throw error;
       }
 
       console.log('💳 PAYMENT SUCCESS - Payment processed, now sending email and saving to Airtable');
