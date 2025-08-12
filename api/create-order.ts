@@ -1,5 +1,20 @@
 import Airtable from 'airtable';
 
+// Vercel serverless function types
+interface VercelRequest {
+    method?: string;
+    body: any;
+    query: { [key: string]: string | string[] };
+    headers: { [key: string]: string };
+}
+
+interface VercelResponse {
+    status: (code: number) => VercelResponse;
+    json: (object: any) => VercelResponse;
+    send: (body: any) => VercelResponse;
+    end: () => VercelResponse;
+}
+
 // Helper function for structured logging
 function logEvent(event: string, data: any) {
     console.log(JSON.stringify({
@@ -288,14 +303,11 @@ const createOrder = async (customerId: string, orderData: any): Promise<string |
     }
 };
 
-export default async function handler(request: Request) {
-    logEvent('create_order_request', { method: request.method });
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    logEvent('create_order_request', { method: req.method });
 
-    if (request.method !== 'POST') {
-        return new Response(JSON.stringify({ success: false, error: 'Method not allowed' }), {
-            status: 405,
-            headers: { 'Content-Type': 'application/json' }
-        });
+    if (req.method !== 'POST') {
+        return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
 
     if (!base) {
@@ -303,14 +315,11 @@ export default async function handler(request: Request) {
             hasApiKey: !!AIRTABLE_API_KEY,
             hasBaseId: !!AIRTABLE_BASE_ID
         });
-        return new Response(JSON.stringify({ success: false, error: 'Airtable not configured' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-        });
+        return res.status(500).json({ success: false, error: 'Airtable not configured' });
     }
 
     try {
-        const { orderDetails, paymentId, paymentStatus, actualAmount } = await request.json();
+        const { orderDetails, paymentId, paymentStatus, actualAmount } = req.body;
 
         logEvent('create_order_data', {
             hasOrderDetails: !!orderDetails,
@@ -320,10 +329,7 @@ export default async function handler(request: Request) {
         });
 
         if (!orderDetails) {
-            return new Response(JSON.stringify({ success: false, error: 'Missing order details' }), {
-                status: 400,
-                headers: { 'Content-Type': 'application/json' }
-            });
+            return res.status(400).json({ success: false, error: 'Missing order details' });
         }
 
         // Generate order number first
@@ -351,27 +357,21 @@ export default async function handler(request: Request) {
         logEvent('create_order_success', { customerId, orderId, paymentId });
 
         // Return success without shipping label generation for faster checkout
-        return new Response(JSON.stringify({
+        return res.status(200).json({
             success: true,
             customerId,
             orderId,
             paymentId,
             orderNumber: orderData.orderNumber,
             message: 'Order created successfully. Shipping labels will be generated separately.'
-        }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
         });
 
     } catch (error) {
         logEvent('create_order_error', { error: error.message });
 
-        return new Response(JSON.stringify({
+        return res.status(500).json({
             success: false,
             error: error.message || 'Failed to create order'
-        }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
         });
     }
 }

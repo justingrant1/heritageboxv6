@@ -620,34 +620,35 @@ const Checkout = () => {
       // Send order details to Formspree
       await sendOrderDetailsToFormspree(orderData, "Order Completed");
 
-      // Now save to Airtable (after email is sent so customer gets confirmation even if this fails)
-      try {
-        console.log('💾 AIRTABLE - Saving order to Airtable...');
-        const createOrderResponse = await fetch('/api/create-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            orderDetails: orderData,
-            paymentId: result.paymentIntent?.id || `stripe_${Date.now()}`,
-            paymentStatus: 'succeeded',
-            actualAmount: parseFloat(calculateTotal())
-          }),
-        });
-
-        const createOrderResult = await createOrderResponse.json();
-        
-        if (createOrderResult.success) {
-          console.log('✅ AIRTABLE SUCCESS - Order saved to Airtable:', createOrderResult);
-        } else {
-          console.error('❌ AIRTABLE ERROR - Failed to save to Airtable:', createOrderResult.error);
-          // Don't show error to user since payment and email worked
+      // Save to Airtable in background (non-blocking) - don't wait for this to complete
+      // This prevents the checkout from hanging if Airtable is slow or fails
+      fetch('/api/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderDetails: orderData,
+          paymentId: result.paymentIntent?.id || `stripe_${Date.now()}`,
+          paymentStatus: 'succeeded',
+          actualAmount: parseFloat(calculateTotal())
+        }),
+      }).then(async (createOrderResponse) => {
+        try {
+          const createOrderResult = await createOrderResponse.json();
+          if (createOrderResult.success) {
+            console.log('✅ AIRTABLE SUCCESS - Order saved to Airtable:', createOrderResult);
+          } else {
+            console.error('❌ AIRTABLE ERROR - Failed to save to Airtable:', createOrderResult.error);
+          }
+        } catch (error) {
+          console.error('❌ AIRTABLE ERROR - Failed to parse response:', error);
         }
-      } catch (airtableError) {
+      }).catch((airtableError) => {
         console.error('❌ AIRTABLE ERROR - Failed to call create-order API:', airtableError);
-        // Don't show error to user since payment and email worked
-      }
+      });
+      
+      console.log('💾 AIRTABLE - Order save initiated in background (non-blocking)');
 
       console.log('✅ ORDER SUCCESS - Order processed and email sent successfully');
 
