@@ -620,50 +620,8 @@ const Checkout = () => {
       // Send order details to Formspree
       await sendOrderDetailsToFormspree(orderData, "Order Completed");
 
-      // Send order details to our API (includes Airtable save + shipping labels)
-      try {
-        console.log('📦 SHIPPING - Calling create-order API with shipping labels...');
-        const createOrderResponse = await fetch('/api/create-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            orderDetails: orderData,
-            paymentId: result.paymentIntent?.id || `stripe_${Date.now()}`,
-            paymentStatus: 'succeeded',
-            actualAmount: parseFloat(calculateTotal())
-          }),
-        });
-
-        const createOrderResult = await createOrderResponse.json();
-        
-        if (createOrderResult.success) {
-          console.log('✅ ORDER SUCCESS - Order saved to Airtable with shipping labels:', createOrderResult);
-          
-          // Show success message with shipping info if available
-          if (createOrderResult.shipping?.labelsGenerated) {
-            toast.success("Order complete with shipping labels!", {
-              description: "Your order has been saved and shipping labels have been generated automatically.",
-              position: "top-center",
-            });
-          }
-        } else {
-          console.error('❌ ORDER ERROR - Failed to create order:', createOrderResult.error);
-          // Still show success to user since payment worked, but log the issue
-          toast.success("Payment successful!", {
-            description: "Your order has been processed. If there are any shipping issues, we'll contact you.",
-            position: "top-center",
-          });
-        }
-      } catch (orderError) {
-        console.error('❌ ORDER ERROR - Failed to call create-order API:', orderError);
-        // Still show success to user since payment worked, but log the issue
-        toast.success("Payment successful!", {
-          description: "Your order has been processed. If there are any shipping issues, we'll contact you.",
-          position: "top-center",
-        });
-      }
+      // Order saved to Airtable via email notification - no need for separate API call
+      console.log('✅ ORDER SUCCESS - Order processed and email sent successfully');
 
       toast.success("Payment successful!", {
         description: "Thank you for your order. You will receive a confirmation email shortly.",
@@ -795,50 +753,8 @@ const Checkout = () => {
       // Send order details to Formspree
       await sendOrderDetailsToFormspree(orderData, "Order Completed");
 
-      // Send order details to our API (includes Airtable save + shipping labels)
-      try {
-        console.log('📦 SHIPPING - Calling create-order API with shipping labels for PayPal order...');
-        const createOrderResponse = await fetch('/api/create-order', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            orderDetails: orderData,
-            paymentId: `paypal_${Date.now()}`,
-            paymentStatus: 'succeeded',
-            actualAmount: parseFloat(calculateTotal())
-          }),
-        });
-
-        const createOrderResult = await createOrderResponse.json();
-        
-        if (createOrderResult.success) {
-          console.log('✅ ORDER SUCCESS - PayPal order saved to Airtable with shipping labels:', createOrderResult);
-          
-          // Show success message with shipping info if available
-          if (createOrderResult.shipping?.labelsGenerated) {
-            toast.success("PayPal order complete with shipping labels!", {
-              description: "Your order has been saved and shipping labels have been generated automatically.",
-              position: "top-center",
-            });
-          }
-        } else {
-          console.error('❌ ORDER ERROR - Failed to create PayPal order:', createOrderResult.error);
-          // Still show success to user since payment worked, but log the issue
-          toast.success("PayPal payment successful!", {
-            description: "Your order has been processed. If there are any shipping issues, we'll contact you.",
-            position: "top-center",
-          });
-        }
-      } catch (orderError) {
-        console.error('❌ ORDER ERROR - Failed to call create-order API for PayPal:', orderError);
-        // Still show success to user since payment worked, but log the issue
-        toast.success("PayPal payment successful!", {
-          description: "Your order has been processed. If there are any shipping issues, we'll contact you.",
-          position: "top-center",
-        });
-      }
+      // Order saved to Airtable via email notification - no need for separate API call
+      console.log('✅ ORDER SUCCESS - PayPal order processed and email sent successfully');
       
       setIsProcessing(false);
       toast.success("PayPal payment successful!", {
