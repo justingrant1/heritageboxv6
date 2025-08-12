@@ -499,9 +499,9 @@ const Checkout = () => {
       let result;
       
       try {
-        console.log('💳 PAYMENT API - Making request to /api/process-stripe-payment...');
+        console.log('💳 PAYMENT API - Making request to /api/process-stripe-payment-simple...');
         
-        response = await fetch('/api/process-stripe-payment', {
+        response = await fetch('/api/process-stripe-payment-simple', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
