@@ -1,7 +1,3 @@
-export const config = {
-    runtime: 'nodejs',
-};
-
 // Helper function for structured logging
 function logEvent(event: string, data: any) {
     console.log(JSON.stringify({
@@ -11,33 +7,21 @@ function logEvent(event: string, data: any) {
     }));
 }
 
-export default async function handler(request: any) {
+export default async function handler(req: any, res: any) {
     logEvent('stripe_request_received', {
-        method: request.method,
-        url: request.url,
-        headers: request.headers
+        method: req.method,
+        url: req.url,
+        headers: req.headers
     });
 
-    if (request.method !== 'POST') {
-        logEvent('method_not_allowed', {method: request.method});
-        return new Response(JSON.stringify({success: false, error: 'Method not allowed'}), {
-            status: 405,
-            headers: {'Content-Type': 'application/json'}
-        });
+    if (req.method !== 'POST') {
+        logEvent('method_not_allowed', {method: req.method});
+        return res.status(405).json({success: false, error: 'Method not allowed'});
     }
 
     try {
-        // Parse request body for Node.js runtime
-        let rawBody = '';
-        request.on('data', (chunk: any) => {
-            rawBody += chunk.toString();
-        });
-        
-        await new Promise((resolve) => {
-            request.on('end', resolve);
-        });
-        
-        const body = JSON.parse(rawBody);
+        // Vercel automatically parses the request body
+        const body = req.body;
         logEvent('stripe_request_body_parsed', {
             hasPaymentMethod: !!body.paymentMethod,
             amount: body.amount,
@@ -51,10 +35,7 @@ export default async function handler(request: any) {
                 missingPaymentMethod: !paymentMethod,
                 missingAmount: !amount
             });
-            return new Response(JSON.stringify({success: false, error: 'Missing required fields'}), {
-                status: 400,
-                headers: {'Content-Type': 'application/json'}
-            });
+            return res.status(400).json({success: false, error: 'Missing required fields'});
         }
 
         const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -66,10 +47,7 @@ export default async function handler(request: any) {
 
         if (!stripeSecretKey) {
             logEvent('stripe_configuration_error', {error: 'STRIPE_SECRET_KEY not configured'});
-            return new Response(JSON.stringify({success: false, error: 'Payment service not configured - missing secret key'}), {
-                status: 500,
-                headers: {'Content-Type': 'application/json'}
-            });
+            return res.status(500).json({success: false, error: 'Payment service not configured - missing secret key'});
         }
 
         logEvent('stripe_payment_initiated', {
@@ -230,14 +208,11 @@ export default async function handler(request: any) {
                 clientSecret: result.client_secret
             });
             
-            return new Response(JSON.stringify({
+            return res.status(200).json({
                 success: false,
                 requiresAction: true,
                 clientSecret: result.client_secret,
                 error: 'Payment requires additional authentication'
-            }), {
-                status: 200,
-                headers: {'Content-Type': 'application/json'}
             });
         }
 
@@ -265,8 +240,8 @@ export default async function handler(request: any) {
                 });
 
                 // Get the base URL from the current request headers
-                const host = request.headers.host || request.headers['x-forwarded-host'] || 'www.heritagebox.com';
-                const protocol = request.headers['x-forwarded-proto'] || 'https';
+                const host = req.headers.host || req.headers['x-forwarded-host'] || 'www.heritagebox.com';
+                const protocol = req.headers['x-forwarded-proto'] || 'https';
                 const baseUrl = `${protocol}://${host}`;
                 
                 const airtableResponse = await fetch(`${baseUrl}/api/create-order`, {
@@ -293,7 +268,7 @@ export default async function handler(request: any) {
                         error: airtableError
                     });
                 }
-            } catch (error) {
+            } catch (error: any) {
                 logEvent('airtable_integration_error', {
                     paymentIntentId: result.id,
                     error: error.message
@@ -302,26 +277,20 @@ export default async function handler(request: any) {
             }
         }
 
-        return new Response(JSON.stringify({
+        return res.status(200).json({
             success: true,
             paymentIntent: result
-        }), {
-            status: 200,
-            headers: {'Content-Type': 'application/json'}
         });
-    } catch (error) {
+    } catch (error: any) {
         logEvent('stripe_payment_error', {
             error: error.message,
             stack: error.stack,
             name: error.name
         });
 
-        return new Response(JSON.stringify({
+        return res.status(500).json({
             success: false,
             error: error.message || 'Internal server error'
-        }), {
-            status: 500,
-            headers: {'Content-Type': 'application/json'}
         });
     }
 }
