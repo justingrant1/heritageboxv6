@@ -1,7 +1,3 @@
-export const config = {
-    runtime: 'nodejs', // Use Node.js runtime for Airtable SDK
-};
-
 import Airtable from 'airtable';
 
 // Helper function for structured logging
@@ -354,134 +350,18 @@ export default async function handler(request: Request) {
 
         logEvent('create_order_success', { customerId, orderId, paymentId });
 
-        // Generate shipping labels automatically after order creation
-        try {
-            logEvent('shipping_labels_generation_started', { orderId, orderNumber: orderData.orderNumber });
-            
-            // Get the base URL from the current request
-            const url = new URL(request.url);
-            const baseUrl = `${url.protocol}//${url.host}`;
-            
-            // Prepare customer address for shipping label generation
-            const customerAddress = {
-                firstName: orderData.customerInfo.firstName,
-                lastName: orderData.customerInfo.lastName,
-                email: orderData.customerInfo.email,
-                phone: orderData.customerInfo.phone,
-                address: orderData.customerInfo.address,
-                city: orderData.customerInfo.city,
-                state: orderData.customerInfo.state,
-                zipCode: orderData.customerInfo.zipCode
-            };
-
-            // Call the shipping label generation API
-            const shippingResponse = await fetch(`${baseUrl}/api/generate-shipping-labels`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    customerAddress: customerAddress,
-                    orderNumber: orderData.orderNumber || `ORDER-${Date.now()}`
-                })
-            });
-
-            if (shippingResponse.ok) {
-                const shippingResult = await shippingResponse.json();
-                logEvent('shipping_labels_generated', { 
-                    orderId, 
-                    trackingNumbers: {
-                        label1: shippingResult.airtableData.Label_1_Tracking,
-                        label2: shippingResult.airtableData.Label_2_Tracking,
-                        label3: shippingResult.airtableData.Label_3_Tracking
-                    }
-                });
-
-                // Update the order in Airtable with shipping information
-                try {
-                    const updateResponse = await fetch(`${baseUrl}/api/update-shipping-airtable`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            orderNumber: orderData.orderNumber || `ORDER-${Date.now()}`,
-                            shippingData: shippingResult.airtableData
-                        })
-                    });
-
-                    if (updateResponse.ok) {
-                        logEvent('airtable_shipping_update_success', { orderId });
-                    } else {
-                        const updateError = await updateResponse.text();
-                        logEvent('airtable_shipping_update_failed', { orderId, error: updateError });
-                    }
-                } catch (updateError) {
-                    logEvent('airtable_shipping_update_error', { orderId, error: updateError.message });
-                }
-
-                // Return success with shipping information
-                return new Response(JSON.stringify({
-                    success: true,
-                    customerId,
-                    orderId,
-                    paymentId,
-                    shipping: {
-                        labelsGenerated: true,
-                        trackingNumbers: {
-                            label1: shippingResult.airtableData.Label_1_Tracking,
-                            label2: shippingResult.airtableData.Label_2_Tracking,
-                            label3: shippingResult.airtableData.Label_3_Tracking
-                        },
-                        labelUrls: {
-                            label1: shippingResult.airtableData.Label_1_URL,
-                            label2: shippingResult.airtableData.Label_2_URL,
-                            label3: shippingResult.airtableData.Label_3_URL
-                        }
-                    }
-                }), {
-                    status: 200,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-            } else {
-                const shippingError = await shippingResponse.text();
-                logEvent('shipping_labels_generation_failed', { orderId, error: shippingError });
-                
-                // Return success for order creation but note shipping failure
-                return new Response(JSON.stringify({
-                    success: true,
-                    customerId,
-                    orderId,
-                    paymentId,
-                    shipping: {
-                        labelsGenerated: false,
-                        error: 'Failed to generate shipping labels'
-                    }
-                }), {
-                    status: 200,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-            }
-
-        } catch (shippingError) {
-            logEvent('shipping_labels_generation_error', { orderId, error: shippingError.message });
-            
-            // Return success for order creation but note shipping failure
-            return new Response(JSON.stringify({
-                success: true,
-                customerId,
-                orderId,
-                paymentId,
-                shipping: {
-                    labelsGenerated: false,
-                    error: 'Shipping label generation failed'
-                }
-            }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
+        // Return success without shipping label generation for faster checkout
+        return new Response(JSON.stringify({
+            success: true,
+            customerId,
+            orderId,
+            paymentId,
+            orderNumber: orderData.orderNumber,
+            message: 'Order created successfully. Shipping labels will be generated separately.'
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        });
 
     } catch (error) {
         logEvent('create_order_error', { error: error.message });
