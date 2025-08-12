@@ -21,11 +21,35 @@ const EmailSignup = () => {
     
     try {
       // Send email to info@heritagebox.com using our utility function
-      await sendEmailToHeritageBox({ 
+      const emailPromise = sendEmailToHeritageBox({ 
         email, 
         page: window.location.pathname,
         fullUrl: window.location.href
       }, 'newsletter-signup');
+
+      // Save to Airtable prospects table
+      const prospectPromise = fetch('/api/save-prospect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          source: 'Newsletter Signup',
+          pageUrl: window.location.href,
+          message: `Newsletter signup from ${window.location.pathname}`
+        })
+      });
+
+      // Wait for both operations to complete
+      const [emailResult, prospectResponse] = await Promise.all([emailPromise, prospectPromise]);
+      
+      // Check if prospect save was successful (but don't fail if it wasn't)
+      if (prospectResponse.ok) {
+        console.log('✅ Prospect saved to Airtable successfully');
+      } else {
+        console.warn('⚠️ Failed to save prospect to Airtable, but continuing...');
+      }
       
       // Show success message
       toast.success("Thanks for signing up! You'll receive updates about our services.");

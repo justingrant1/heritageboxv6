@@ -40,11 +40,35 @@ const EmailPopup = () => {
     
     try {
       // Send email to info@heritagebox.com using our utility function
-      await sendEmailToHeritageBox({ 
+      const emailPromise = sendEmailToHeritageBox({ 
         email, 
         referrer: document.referrer,
         pageUrl: window.location.href
       }, 'welcome-popup');
+
+      // Save to Airtable prospects table
+      const prospectPromise = fetch('/api/save-prospect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          source: 'Welcome Popup',
+          pageUrl: window.location.href,
+          message: '15% discount signup from welcome popup'
+        })
+      });
+
+      // Wait for both operations to complete
+      const [emailResult, prospectResponse] = await Promise.all([emailPromise, prospectPromise]);
+      
+      // Check if prospect save was successful (but don't fail if it wasn't)
+      if (prospectResponse.ok) {
+        console.log('✅ Prospect saved to Airtable successfully');
+      } else {
+        console.warn('⚠️ Failed to save prospect to Airtable, but continuing...');
+      }
       
       // Mark that the user has seen the popup
       localStorage.setItem('hasSeenEmailPopup', 'true');

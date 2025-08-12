@@ -46,11 +46,36 @@ const ContactForm = () => {
     
     try {
       // Send contact form data to HeritageBox email using our utility function
-      await sendEmailToHeritageBox({
+      const emailPromise = sendEmailToHeritageBox({
         ...formData,
         page: window.location.pathname,
         url: window.location.href
       }, 'contact-form');
+
+      // Save to Airtable prospects table
+      const prospectPromise = fetch('/api/save-prospect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          name: formData.name,
+          source: 'Contact Form',
+          pageUrl: window.location.href,
+          message: formData.message
+        })
+      });
+
+      // Wait for both operations to complete
+      const [emailResult, prospectResponse] = await Promise.all([emailPromise, prospectPromise]);
+      
+      // Check if prospect save was successful (but don't fail if it wasn't)
+      if (prospectResponse.ok) {
+        console.log('✅ Prospect saved to Airtable successfully');
+      } else {
+        console.warn('⚠️ Failed to save prospect to Airtable, but continuing...');
+      }
       
       // Show success message
       toast.success("Thank you! Your message has been sent. We'll be in touch soon.");
