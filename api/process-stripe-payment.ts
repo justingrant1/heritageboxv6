@@ -11,7 +11,7 @@ function logEvent(event: string, data: any) {
     }));
 }
 
-export default async function handler(request: Request) {
+export default async function handler(request: any) {
     logEvent('stripe_request_received', {
         method: request.method,
         url: request.url,
@@ -27,7 +27,17 @@ export default async function handler(request: Request) {
     }
 
     try {
-        const body = await request.json();
+        // Parse request body for Node.js runtime
+        let rawBody = '';
+        request.on('data', (chunk: any) => {
+            rawBody += chunk.toString();
+        });
+        
+        await new Promise((resolve) => {
+            request.on('end', resolve);
+        });
+        
+        const body = JSON.parse(rawBody);
         logEvent('stripe_request_body_parsed', {
             hasPaymentMethod: !!body.paymentMethod,
             amount: body.amount,
