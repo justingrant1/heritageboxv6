@@ -8,29 +8,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).send('Method Not Allowed');
   }
 
-  // Vercel's body parser doesn't handle urlencoded forms well, so we need to parse it manually
-  const parsedBody = querystring.parse(req.body);
-  const payload = JSON.parse(parsedBody.payload as string);
+  try {
+    const parsedBody = querystring.parse(req.body);
+    const payload = JSON.parse(parsedBody.payload as string);
 
-  if (payload.type === 'block_actions') {
-    const action = payload.actions[0];
-    const conversationId = action.value;
-    const conversation = getConversation(conversationId);
+    if (payload.type === 'block_actions') {
+      const action = payload.actions[0];
+      const conversationId = action.value;
+      const conversation = getConversation(conversationId);
 
-    if (action.action_id === 'take_customer' && conversation) {
-      const agentId = payload.user.id;
-      updateConversation(conversationId, { status: 'active', agentId });
+      if (action.action_id === 'take_customer' && conversation) {
+        const agentId = payload.user.id;
+        updateConversation(conversationId, { status: 'active', agentId });
 
-      const thread_ts = payload.message.ts;
-      updateConversation(conversationId, { slackThreadId: thread_ts });
+        const thread_ts = payload.message.ts;
+        updateConversation(conversationId, { slackThreadId: thread_ts });
 
-      await sendSlackThreadMessage(
-        payload.channel.id,
-        thread_ts,
-        `<@${agentId}> has taken the customer.`
-      );
+        await sendSlackThreadMessage(
+          payload.channel.id,
+          thread_ts,
+          `<@${agentId}> has taken the customer.`
+        );
+      }
     }
-  }
 
-  res.status(200).send('');
+    res.status(200).send('');
+  } catch (error) {
+    console.error('Error in slack-interactions handler:', error);
+    res.status(500).send('Internal Server Error');
+  }
 }
