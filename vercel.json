@@ -1,8 +1,9 @@
 {
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    }
+    { "source": "/api/slack-notify", "destination": "/api/slack-notify" },
+    { "source": "/api/slack-interactions", "destination": "/api/slack-interactions" },
+    { "source": "/api/slack-events", "destination": "/api/slack-events" },
+    { "source": "/api/chat-poll", "destination": "/api/chat-poll" },
+    { "source": "/api/send-to-slack", "destination": "/api/send-to-slack" }
   ]
 }
