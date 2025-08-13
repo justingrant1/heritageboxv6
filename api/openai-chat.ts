@@ -9,7 +9,7 @@ const openai = new OpenAI({
 // Helper function to fetch product info from Airtable
 async function getProductInfo(base: AirtableBase) {
   try {
-    const records = await base('Products').select({
+    const records = await base('tblJ0hgzvDXWgQGmK').select({ // Using Products Table ID for robustness
       fields: ['Product Name', 'Description', 'Price'],
       maxRecords: 100,
     }).all();
@@ -32,9 +32,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { message, chatHistory } = req.body;
 
-  // Initialize Airtable base
+  // Initialize Airtable base using VITE prefixed env variables
   const Airtable = require('airtable');
-  const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
+  const base = new Airtable({ apiKey: process.env.VITE_AIRTABLE_API_KEY }).base(process.env.VITE_AIRTABLE_BASE_ID || 'appFMHAYZrTskpmdX');
 
   // Fetch product info from Airtable
   const productInfo = await getProductInfo(base);
@@ -47,12 +47,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ${productInfoString}
   `;
 
+  // Format chat history for OpenAI API
+  const formattedHistory = (chatHistory || []).map((msg: { sender: string; text: string }) => ({
+    role: msg.sender === 'user' ? 'user' : 'assistant',
+    content: msg.text,
+  }));
+
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
         { role: 'system', content: systemMessage },
-        ...chatHistory,
+        ...formattedHistory,
         { role: 'user', content: message },
       ],
     });
