@@ -2,26 +2,64 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifySlackRequest } from '../src/utils/slackService';
 import { getConversationRecordByThreadId, updateConversationRecord } from '../src/utils/airtableConversations';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method === 'POST' && req.body.challenge) {
-    return res.status(200).send(req.body.challenge);
-  }
+// Disable Vercel's default body parser
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
+// Helper to read the raw body from the request
+const getRawBody = async (req: VercelRequest): Promise<string> => {
+  const chunks: any[] = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString();
+};
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  const { type, event } = req.body;
+  const rawBody = await getRawBody(req);
+  
+  // We need to pass the raw body to the verification function
+  // Vercel's req.body will be undefined since we disabled the parser
+  const tempReqForVerification = { ...req, body: rawBody };
 
-  if (type === 'event_callback') {
+  if (!verifySlackRequest(tempReqForVerification as VercelRequest)) {
+    console.error('Slack request verification failed.');
+    return res.status(401).send('Unauthorized');
+  }
+
+  const body = JSON.parse(rawBody);
+
+  if (body.type === 'url_verification') {
+    console.log('Responding to url_verification challenge.');
+    return res.status(200).send(body.challenge);
+  }
+
+  if (body.type === 'event_callback') {
+    const { event } = body;
+    console.log('Received event:', JSON.stringify(event, null, 2));
+
     if (event.type === 'message' && !event.bot_id && event.thread_ts) {
+      console.log(`Processing message in thread: ${event.thread_ts}`);
       const conversationRecord = await getConversationRecordByThreadId(event.thread_ts);
+      
       if (conversationRecord) {
+        console.log(`Found conversation record: ${conversationRecord.id}`);
         const chatHistory = JSON.parse(conversationRecord.fields['Chat History'] as string || '[]');
         chatHistory.push({ sender: 'agent', text: event.text });
+        
         await updateConversationRecord(conversationRecord.id, {
           'Chat History': JSON.stringify(chatHistory),
         });
+        console.log('Updated chat history in Airtable.');
+      } else {
+        console.warn(`No conversation record found for thread_ts: ${event.thread_ts}`);
       }
     }
   }
