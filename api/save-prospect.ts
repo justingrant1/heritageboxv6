@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Map source to valid Airtable options
     const sourceMapping: { [key: string]: string } = {
-      'Email Popup': 'Contact Form',
+      'Email Popup': 'Welcome Popup',
       'Email Signup': 'Contact Form',
       'Contact Form': 'Contact Form',
       'Website Chat': 'Website Chat',
