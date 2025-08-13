@@ -1,23 +1,27 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifySlackRequest } from '../src/utils/slackService';
-import { getConversation, addMessageToConversation } from '../src/utils/conversationStore';
+import { getConversationRecord, updateConversationRecord } from '../src/utils/airtableConversations';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!verifySlackRequest(req)) {
-    return res.status(401).send('Unauthorized');
+  if (req.method === 'POST' && req.body.challenge) {
+    return res.status(200).send(req.body.challenge);
   }
 
-  const { type, challenge, event } = req.body;
-
-  if (type === 'url_verification') {
-    return res.status(200).send(challenge);
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
   }
+
+  const { type, event } = req.body;
 
   if (type === 'event_callback') {
-    if (event.type === 'message' && !event.bot_id) {
-      const conversation = getConversation(event.thread_ts);
-      if (conversation) {
-        addMessageToConversation(conversation.id, 'agent', event.text);
+    if (event.type === 'message' && !event.bot_id && event.thread_ts) {
+      const conversationRecord = await getConversationRecord(event.thread_ts);
+      if (conversationRecord) {
+        const chatHistory = JSON.parse(conversationRecord.fields['Chat History'] as string || '[]');
+        chatHistory.push({ sender: 'agent', text: event.text });
+        await updateConversationRecord(conversationRecord.id, {
+          'Chat History': JSON.stringify(chatHistory),
+        });
       }
     }
   }
