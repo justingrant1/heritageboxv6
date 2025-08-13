@@ -2,11 +2,11 @@ import { WebClient } from '@slack/web-api';
 import crypto from 'crypto';
 import type { VercelRequest } from '@vercel/node';
 
-const slackToken = import.meta.env.VITE_SLACK_BOT_TOKEN || process.env.SLACK_BOT_TOKEN;
-const signingSecret = import.meta.env.VITE_SLACK_SIGNING_SECRET || process.env.SLACK_SIGNING_SECRET;
+const slackToken = process.env.SLACK_BOT_TOKEN;
+const signingSecret = process.env.SLACK_SIGNING_SECRET;
 
 if (!slackToken || !signingSecret) {
-  throw new Error('Slack environment variables are not set.');
+  console.error('Slack environment variables are not set.');
 }
 
 const slackClient = new WebClient(slackToken);
