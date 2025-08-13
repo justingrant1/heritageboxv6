@@ -48,14 +48,19 @@ async function getOrderStatus(base: AirtableBase, orderIdentifier: string) {
       console.log(`Found customer ID: ${customerId}`);
 
       console.log(`Looking up orders for customer ID: ${customerId}`);
-      records = await base('tblTq25QawVDHTTkV') // Orders table
+      // Get all orders and filter programmatically since Airtable formulas are tricky with linked records
+      const allOrders = await base('tblTq25QawVDHTTkV') // Orders table
         .select({
-          // This is the correct formula for finding a linked record by its ID
-          filterByFormula: `FIND('${customerId}', ARRAYJOIN(Customer))`,
-          fields: ['Order Number', 'Status', 'Order Date'],
-          maxRecords: 5,
+          fields: ['Order Number', 'Status', 'Order Date', 'Customer'],
+          maxRecords: 100,
         })
         .all();
+      
+      // Filter orders that have this customer ID in their Customer array
+      records = allOrders.filter(order => {
+        const customerField = order.get('Customer');
+        return Array.isArray(customerField) && customerField.includes(customerId);
+      });
     } else {
       console.log(`Looking up order by number: ${orderIdentifier}`);
       records = await base('tblTq25QawVDHTTkV') // Orders table
