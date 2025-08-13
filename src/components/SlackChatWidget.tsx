@@ -3,7 +3,19 @@ import React, { useState, useEffect, useRef } from 'react';
 const SlackChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<any[]>([]);
+  const [chatHistory, setChatHistory] = useState<any[]>([
+    {
+      sender: 'bot',
+      text: `Hi! I'm your Heritagebox AI assistant. I can help you with:
+
+📸 Photo digitization pricing
+📹 Video transfer options
+📦 Project status updates
+⏰ Turnaround times
+
+What would you like to know?`
+    }
+  ]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationStatus, setConversationStatus] = useState('ai'); // 'ai', 'human', 'resolved'
   const chatMessagesRef = useRef<HTMLDivElement>(null);
@@ -32,10 +44,11 @@ const SlackChatWidget: React.FC = () => {
 
   const toggleChat = () => setIsOpen(!isOpen);
 
-  const handleSendMessage = async () => {
-    if (!message.trim()) return;
+  const handleSendMessage = async (messageText?: string) => {
+    const textToSend = messageText || message;
+    if (!textToSend.trim()) return;
 
-    const newHistory = [...chatHistory, { sender: 'user', text: message }];
+    const newHistory = [...chatHistory, { sender: 'user', text: textToSend }];
     setChatHistory(newHistory);
     setMessage('');
 
@@ -43,7 +56,7 @@ const SlackChatWidget: React.FC = () => {
       const response = await fetch('/api/openai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, chatHistory: chatHistory }),
+        body: JSON.stringify({ message: textToSend, chatHistory: chatHistory }),
       });
       const data = await response.json();
       setChatHistory([...newHistory, { sender: 'bot', text: data.response }]);
@@ -51,9 +64,13 @@ const SlackChatWidget: React.FC = () => {
       await fetch('/api/send-to-slack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, message }),
+        body: JSON.stringify({ conversationId, message: textToSend }),
       });
     }
+  };
+
+  const handleQuickAction = (actionText: string) => {
+    handleSendMessage(actionText);
   };
 
   const handleHumanRequest = async () => {
@@ -106,13 +123,26 @@ const SlackChatWidget: React.FC = () => {
                 placeholder="Type your message..."
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               />
-              <button className="send-button" onClick={handleSendMessage}>
+              <button className="send-button" onClick={() => handleSendMessage()}>
                 ➤
               </button>
             </div>
             <div className="quick-actions">
               {conversationStatus === 'ai' && (
-                <button className="quick-action" onClick={handleHumanRequest}>Talk to a Human</button>
+                <>
+                  <button className="quick-action" onClick={() => handleQuickAction('What are your photo pricing options?')}>
+                    Photo Pricing
+                  </button>
+                  <button className="quick-action" onClick={() => handleQuickAction('Check my order status')}>
+                    Order Status
+                  </button>
+                  <button className="quick-action" onClick={() => handleQuickAction('What video transfer options do you have?')}>
+                    Video Transfer
+                  </button>
+                  <button className="quick-action" onClick={handleHumanRequest}>
+                    Talk to a Human
+                  </button>
+                </>
               )}
             </div>
           </div>
