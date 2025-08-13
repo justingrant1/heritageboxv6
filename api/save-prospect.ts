@@ -48,8 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       Source: sourceMapping[source] || 'Contact Form', // Default to Contact Form if source not recognized
       Status: 'New Lead', // Use correct status value
       Notes: message || `${source} submission from ${pageUrl || 'website'}`,
-      Phone: phone || '',
-      'Created Time': new Date().toISOString() // Add timestamp for n8n trigger
+      Phone: phone || ''
     };
 
     console.log('📝 PROSPECT API - Formatted data for Airtable:', prospectData);
