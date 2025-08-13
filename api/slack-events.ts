@@ -25,11 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const rawBody = await getRawBody(req);
   
-  // We need to pass the raw body to the verification function
-  // Vercel's req.body will be undefined since we disabled the parser
-  const tempReqForVerification = { ...req, body: rawBody };
-
-  if (!verifySlackRequest(tempReqForVerification as VercelRequest)) {
+  if (!verifySlackRequest(req.headers, rawBody)) {
     console.error('Slack request verification failed.');
     return res.status(401).send('Unauthorized');
   }

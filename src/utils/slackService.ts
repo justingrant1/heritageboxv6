@@ -11,17 +11,12 @@ if (!slackToken || !signingSecret) {
 
 const slackClient = new WebClient(slackToken);
 
-export const verifySlackRequest = (request: VercelRequest) => {
-  const signature = request.headers['x-slack-signature'] as string;
-  const timestamp = request.headers['x-slack-request-timestamp'] as string;
-  
-  // When the body is pre-parsed by Vercel, it's an object.
-  // For signature verification, we need the raw body string.
-  // When the request is form-urlencoded, the body is a string.
-  const rawBody = typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
+export const verifySlackRequest = (headers: VercelRequest['headers'], rawBody: string) => {
+  const signature = headers['x-slack-signature'] as string;
+  const timestamp = headers['x-slack-request-timestamp'] as string;
 
   if (!signature || !timestamp) {
-    console.error('Slack signature or timestamp missing.');
+    console.error('Slack signature or timestamp missing from headers.');
     return false;
   }
 
@@ -33,7 +28,7 @@ export const verifySlackRequest = (request: VercelRequest) => {
   try {
     return crypto.timingSafeEqual(Buffer.from(hash, 'utf8'), Buffer.from(signature, 'utf8'));
   } catch (error) {
-    console.error('Error during timingSafeEqual:', error);
+    console.error('Error during signature verification:', error);
     return false;
   }
 };

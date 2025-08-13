@@ -1,21 +1,45 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sendSlackThreadMessage } from '../src/utils/slackService';
+import { verifySlackRequest, sendSlackThreadMessage } from '../src/utils/slackService';
 import { getConversationRecord, updateConversationRecord } from '../src/utils/airtableConversations';
+import querystring from 'querystring';
+
+// Disable Vercel's default body parser
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+// Helper to read the raw body from the request
+const getRawBody = async (req: VercelRequest): Promise<string> => {
+  const chunks: any[] = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString();
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
 
-  try {
-    console.log('Received request body:', JSON.stringify(req.body, null, 2));
+  const rawBody = await getRawBody(req);
 
-    if (!req.body || !req.body.payload) {
+  if (!verifySlackRequest(req.headers, rawBody)) {
+    console.error('Slack request verification failed.');
+    return res.status(401).send('Unauthorized');
+  }
+
+  try {
+    const parsedBody = querystring.parse(rawBody);
+    
+    if (!parsedBody.payload) {
       console.error('Payload is missing from the request body.');
       return res.status(400).send('Bad Request: Missing payload.');
     }
 
-    const payload = JSON.parse(req.body.payload);
+    const payload = JSON.parse(parsedBody.payload as string);
     console.log('Parsed payload:', JSON.stringify(payload, null, 2));
 
     if (payload.type === 'block_actions') {
