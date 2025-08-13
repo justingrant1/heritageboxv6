@@ -32,8 +32,7 @@ async function getOrderStatus(base: AirtableBase, orderIdentifier: string) {
     let records;
 
     if (isEmail) {
-      // Step 1: Find customer by email
-      const customerRecords = await base('tblUS7uf11axEmL56') // Customers table
+      const customerRecords = await base('tblUS7uf11axEmL56')
         .select({
           filterByFormula: `LOWER({Email}) = LOWER("${orderIdentifier}")`,
           maxRecords: 1,
@@ -45,8 +44,7 @@ async function getOrderStatus(base: AirtableBase, orderIdentifier: string) {
       }
       const customerId = customerRecords[0].id;
 
-      // Step 2: Find orders for that customer
-      records = await base('tblTq25QawVDHTTkV') // Orders table
+      records = await base('tblTq25QawVDHTTkV')
         .select({
           filterByFormula: `FIND("${customerId}", ARRAYJOIN({Customer}))`,
           fields: ['Order Number', 'Status', 'Order Date'],
@@ -54,8 +52,7 @@ async function getOrderStatus(base: AirtableBase, orderIdentifier: string) {
         })
         .all();
     } else {
-      // Find order by order number
-      records = await base('tblTq25QawVDHTTkV') // Orders table
+      records = await base('tblTq25QawVDHTTkV')
         .select({
           filterByFormula: `LOWER({Order Number}) = LOWER("${orderIdentifier}")`,
           fields: ['Order Number', 'Status', 'Order Date'],
@@ -71,9 +68,14 @@ async function getOrderStatus(base: AirtableBase, orderIdentifier: string) {
     return records.map(record => 
       `Order #${record.get('Order Number')} (from ${record.get('Order Date')}): Status is ${record.get('Status')}`
     ).join('\n');
-  } catch (error) {
-    console.error('Error fetching order status from Airtable:', error);
-    return 'There was an error fetching the order status.';
+  } catch (error: any) {
+    console.error('Detailed error fetching order status from Airtable:', {
+      message: error.message,
+      statusCode: error.statusCode,
+      error: error.error,
+      identifier: orderIdentifier,
+    });
+    return `ERROR: Could not retrieve order status.`;
   }
 }
 
@@ -98,19 +100,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Simple regex to find an order number or email in the message
     const identifierMatch = message.match(/(\b\w+@\w+\.\w+\b)|(\b\d{6,}\b)/);
     if (identifierMatch) {
+      console.log(`Found identifier: ${identifierMatch[0]}. Fetching order status...`);
       orderStatusInfo = await getOrderStatus(base, identifierMatch[0]);
+      console.log(`Order status result: ${orderStatusInfo}`);
     }
   }
 
   const systemMessage = `
-    You are a helpful assistant for Heritagebox, a media digitization company.
-    Your goal is to answer customer questions, provide pricing, and help them with their orders.
-    Use the following product information to answer questions:
+    You are a helpful assistant for Heritagebox. Your primary function is to provide information based *only* on the data provided to you in this prompt. Do not use any external knowledge or make assumptions.
+
+    **Rule 1: Order Status Lookup**
+    When a user asks for their order status, you must follow these steps precisely:
+    1. Check the "Order Status Information" section below.
+    2. If it contains order details (e.g., "Order #12345: Status is Shipped"), you MUST provide this information to the user.
+    3. If it says "No order found", you MUST tell the user you couldn't find an order with that information and ask them to double-check it.
+    4. If it starts with "ERROR:", you MUST tell the user you are having trouble looking up the order right now and to please try again in a moment.
+    5. If it says "No order information has been looked up yet", you MUST ask the user for their order number or email address.
+    You are forbidden from giving generic responses about not being able to access data. Your ability to access data is provided through the "Order Status Information" field.
+
+    **Rule 2: Product Information**
+    Use the "Product Information" section to answer questions about products and pricing.
+
+    **Data for your response:**
+    
+    Product Information:
     ${productInfoString}
 
-    If the user asks about their order status, use the following information:
-    ${orderStatusInfo}
-    If you need more information to check an order status, ask the user for their order number or email address.
+    Order Status Information:
+    ${orderStatusInfo || 'No order information has been looked up yet.'}
   `;
 
   // Format chat history for OpenAI API
