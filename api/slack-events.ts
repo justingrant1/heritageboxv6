@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifySlackRequest } from '../src/utils/slackService';
-import { getConversationRecord, updateConversationRecord } from '../src/utils/airtableConversations';
+import { getConversationRecordByThreadId, updateConversationRecord } from '../src/utils/airtableConversations';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST' && req.body.challenge) {
@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (type === 'event_callback') {
     if (event.type === 'message' && !event.bot_id && event.thread_ts) {
-      const conversationRecord = await getConversationRecord(event.thread_ts);
+      const conversationRecord = await getConversationRecordByThreadId(event.thread_ts);
       if (conversationRecord) {
         const chatHistory = JSON.parse(conversationRecord.fields['Chat History'] as string || '[]');
         chatHistory.push({ sender: 'agent', text: event.text });

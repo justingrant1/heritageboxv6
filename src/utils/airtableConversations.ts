@@ -53,3 +53,16 @@ export const updateConversationRecord = async (recordId: string, fields: object)
     throw error;
   }
 };
+
+export const getConversationRecordByThreadId = async (threadId: string) => {
+  try {
+    const records = await table.select({
+      filterByFormula: `{Slack Thread ID} = '${threadId}'`,
+      maxRecords: 1,
+    }).firstPage();
+    return records[0];
+  } catch (error) {
+    console.error('Error getting conversation from Airtable by thread ID:', error);
+    throw error;
+  }
+};
