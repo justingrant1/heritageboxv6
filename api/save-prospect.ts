@@ -30,12 +30,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Email and source are required' });
     }
 
+    // Map source to valid Airtable options
+    const sourceMapping: { [key: string]: string } = {
+      'Email Popup': 'Contact Form',
+      'Email Signup': 'Contact Form',
+      'Contact Form': 'Contact Form',
+      'Website Chat': 'Website Chat',
+      'Phone Call': 'Phone Call',
+      'Email Inquiry': 'Email Inquiry',
+      'Social Media': 'Social Media'
+    };
+
     // Prepare the prospect data for Airtable
     const prospectData = {
       Email: email,
       Name: name || '',
-      Source: source,
-      Status: 'New',
+      Source: sourceMapping[source] || 'Contact Form', // Default to Contact Form if source not recognized
+      Status: 'New Lead', // Use correct status value
       Notes: message || `${source} submission from ${pageUrl || 'website'}`,
       Phone: phone || ''
     };
