@@ -1,7 +1,23 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { verifySlackRequest, sendSlackThreadMessage } from '../src/utils/slackService';
+import { sendSlackThreadMessage } from '../src/utils/slackService';
 import { getConversation, updateConversation } from '../src/utils/conversationStore';
 import querystring from 'querystring';
+
+// Disable Vercel's default body parser
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+// Helper to read the raw body from the request
+const getRawBody = async (req: VercelRequest): Promise<string> => {
+  const chunks: any[] = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString();
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -9,7 +25,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const parsedBody = querystring.parse(req.body);
+    const rawBody = await getRawBody(req);
+    const parsedBody = querystring.parse(rawBody);
+    
+    if (!parsedBody.payload) {
+      console.error('Payload is missing from the request body.');
+      return res.status(400).send('Bad Request: Missing payload.');
+    }
+
     const payload = JSON.parse(parsedBody.payload as string);
 
     if (payload.type === 'block_actions') {
