@@ -1,7 +1,7 @@
 import Airtable from 'airtable';
 
-const airtableApiKey = process.env.VITE_AIRTABLE_API_KEY;
-const airtableBaseId = process.env.VITE_AIRTABLE_BASE_ID;
+const airtableApiKey = process.env.AIRTABLE_API_KEY;
+const airtableBaseId = process.env.AIRTABLE_BASE_ID;
 const tableName = 'Conversations';
 
 if (!airtableApiKey || !airtableBaseId) {
