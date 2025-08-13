@@ -30,8 +30,9 @@ const SlackChatWidget: React.FC = () => {
 
   const toggleChat = () => setIsOpen(!isOpen);
 
-  const handleSendMessage = async () => {
-    if (!message.trim()) return;
+  const handleSendMessage = async (isHumanRequest = false) => {
+    const messageToSend = isHumanRequest ? "I'd like to talk to a human." : message;
+    if (!messageToSend.trim()) return;
 
     if (!conversationId) {
       // Start a new conversation
@@ -41,18 +42,18 @@ const SlackChatWidget: React.FC = () => {
         body: JSON.stringify({
           customerName: 'Guest',
           customerEmail: 'guest@example.com',
-          initialMessage: message,
+          initialMessage: messageToSend,
         }),
       });
       const data = await response.json();
       setConversationId(data.conversationId);
-      setChatHistory([{ sender: 'user', text: message }]);
+      setChatHistory([{ sender: 'user', text: messageToSend }]);
     } else {
       // Send a message to an existing conversation
       await fetch('/api/send-to-slack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, message }),
+        body: JSON.stringify({ conversationId, message: messageToSend }),
       });
     }
     setMessage('');
@@ -88,9 +89,12 @@ const SlackChatWidget: React.FC = () => {
                 placeholder="Type your message..."
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               />
-              <button className="send-button" onClick={handleSendMessage}>
+              <button className="send-button" onClick={() => handleSendMessage()}>
                 ➤
               </button>
+            </div>
+            <div className="quick-actions">
+              <button className="quick-action" onClick={() => handleSendMessage(true)}>Talk to a Human</button>
             </div>
           </div>
         </div>
