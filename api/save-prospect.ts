@@ -33,12 +33,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Map source to valid Airtable options
     const sourceMapping: { [key: string]: string } = {
       'Email Popup': 'Welcome Popup',
-      'Email Signup': 'Contact Form',
+      'Email Signup': 'Newsletter',
       'Contact Form': 'Contact Form',
       'Website Chat': 'Website Chat',
       'Phone Call': 'Phone Call',
       'Email Inquiry': 'Email Inquiry',
-      'Social Media': 'Social Media'
+      'Social Media': 'Social Media',
+      'Newsletter Signup': 'Newsletter'
     };
 
     // Prepare the prospect data for Airtable
