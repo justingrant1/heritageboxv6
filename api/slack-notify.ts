@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sendSlackMessage } from '../src/utils/slackService';
-import { createConversation, addMessageToConversation } from '../src/utils/conversationStore';
+import { createConversationRecord } from '../src/utils/airtableConversations';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -10,8 +10,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { customerName, customerEmail, initialMessage } = req.body;
   const conversationId = `conv_${Date.now()}`;
 
-  createConversation(conversationId, customerName, customerEmail);
-  addMessageToConversation(conversationId, 'user', initialMessage);
+  try {
+    await createConversationRecord(conversationId, customerName, customerEmail);
+  } catch (error) {
+    return res.status(500).send('Error creating conversation record');
+  }
 
   const blocks = [
     {

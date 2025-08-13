@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sendSlackThreadMessage } from '../src/utils/slackService';
-import { getConversation, updateConversation } from '../src/utils/conversationStore';
+import { getConversationRecord, updateConversationRecord } from '../src/utils/airtableConversations';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -21,14 +21,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (payload.type === 'block_actions') {
       const action = payload.actions[0];
       const conversationId = action.value;
-      const conversation = getConversation(conversationId);
+      const conversationRecord = await getConversationRecord(conversationId);
 
-      if (action.action_id === 'take_customer' && conversation) {
+      if (action.action_id === 'take_customer' && conversationRecord) {
         const agentId = payload.user.id;
-        updateConversation(conversationId, { status: 'active', agentId });
-
         const thread_ts = payload.message.ts;
-        updateConversation(conversationId, { slackThreadId: thread_ts });
+
+        await updateConversationRecord(conversationRecord.id, {
+          'Status': 'active',
+          'Agent ID': agentId,
+          'Slack Thread ID': thread_ts,
+        });
 
         await sendSlackThreadMessage(
           payload.channel.id,
