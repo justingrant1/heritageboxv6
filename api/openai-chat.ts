@@ -51,7 +51,7 @@ async function getOrderStatus(base: AirtableBase, orderIdentifier: string) {
       records = await base('tblTq25QawVDHTTkV') // Orders table
         .select({
           // This is the correct formula for finding a linked record by its ID
-          filterByFormula: `SEARCH('${customerId}', ARRAYJOIN(Customer))`,
+          filterByFormula: `FIND('${customerId}', ARRAYJOIN(Customer))`,
           fields: ['Order Number', 'Status', 'Order Date'],
           maxRecords: 5,
         })
