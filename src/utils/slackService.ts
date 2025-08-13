@@ -5,6 +5,10 @@ import type { VercelRequest } from '@vercel/node';
 const slackToken = import.meta.env.VITE_SLACK_BOT_TOKEN || process.env.SLACK_BOT_TOKEN;
 const signingSecret = import.meta.env.VITE_SLACK_SIGNING_SECRET || process.env.SLACK_SIGNING_SECRET;
 
+if (!slackToken || !signingSecret) {
+  throw new Error('Slack environment variables are not set.');
+}
+
 const slackClient = new WebClient(slackToken);
 
 export const verifySlackRequest = (request: VercelRequest) => {
