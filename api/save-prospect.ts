@@ -42,8 +42,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('📝 PROSPECT API - Formatted data for Airtable:', prospectData);
 
-    // Save to Airtable using fetch
-    const airtableUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/Prospects`;
+    // Save to Airtable using fetch - using correct HBOX2 base ID
+    const AIRTABLE_BASE_ID = 'appFMHAYZrTskpmdX'; // HBOX2 base ID (same as create-order.ts)
+    const airtableUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Prospects`;
     
     const airtableResponse = await fetch(airtableUrl, {
       method: 'POST',
