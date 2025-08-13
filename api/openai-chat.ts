@@ -32,7 +32,8 @@ async function getOrderStatus(base: AirtableBase, orderIdentifier: string) {
     let records;
 
     if (isEmail) {
-      const customerRecords = await base('tblUS7uf11axEmL56')
+      console.log(`Looking up customer by email: ${orderIdentifier}`);
+      const customerRecords = await base('tblUS7uf11axEmL56') // Customers table
         .select({
           filterByFormula: `LOWER({Email}) = LOWER("${orderIdentifier}")`,
           maxRecords: 1,
@@ -40,19 +41,23 @@ async function getOrderStatus(base: AirtableBase, orderIdentifier: string) {
         .firstPage();
 
       if (customerRecords.length === 0) {
-        return 'No customer found with that email address.';
+        console.log(`No customer found for email: ${orderIdentifier}`);
+        return 'No order found with that information. Please double-check your order number or email.';
       }
       const customerId = customerRecords[0].id;
+      console.log(`Found customer ID: ${customerId}`);
 
-      records = await base('tblTq25QawVDHTTkV')
+      console.log(`Looking up orders for customer ID: ${customerId}`);
+      records = await base('tblTq25QawVDHTTkV') // Orders table
         .select({
-          filterByFormula: `FIND("${customerId}", ARRAYJOIN({Customer}))`,
+          filterByFormula: `SEARCH('${customerId}', ARRAYJOIN(Customer))`,
           fields: ['Order Number', 'Status', 'Order Date'],
           maxRecords: 5,
         })
         .all();
     } else {
-      records = await base('tblTq25QawVDHTTkV')
+      console.log(`Looking up order by number: ${orderIdentifier}`);
+      records = await base('tblTq25QawVDHTTkV') // Orders table
         .select({
           filterByFormula: `LOWER({Order Number}) = LOWER("${orderIdentifier}")`,
           fields: ['Order Number', 'Status', 'Order Date'],
@@ -62,9 +67,11 @@ async function getOrderStatus(base: AirtableBase, orderIdentifier: string) {
     }
 
     if (records.length === 0) {
+      console.log(`No orders found for identifier: ${orderIdentifier}`);
       return 'No order found with that information. Please double-check your order number or email.';
     }
 
+    console.log(`Found ${records.length} order(s).`);
     return records.map(record => 
       `Order #${record.get('Order Number')} (from ${record.get('Order Date')}): Status is ${record.get('Status')}`
     ).join('\n');
