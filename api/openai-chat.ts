@@ -28,17 +28,41 @@ async function getProductInfo(base: AirtableBase) {
 // Helper function to fetch order status from Airtable
 async function getOrderStatus(base: AirtableBase, orderIdentifier: string) {
   try {
-    // Check if the identifier is an email or an order number
     const isEmail = orderIdentifier.includes('@');
-    const filterByFormula = isEmail
-      ? `LOWER({Customer Email}) = LOWER("${orderIdentifier}")`
-      : `LOWER({Order Number}) = LOWER("${orderIdentifier}")`;
+    let records;
 
-    const records = await base('tblTq25QawVDHTTkV').select({
-      filterByFormula,
-      fields: ['Order Number', 'Status', 'Order Date'],
-      maxRecords: 5,
-    }).all();
+    if (isEmail) {
+      // Step 1: Find customer by email
+      const customerRecords = await base('tblUS7uf11axEmL56') // Customers table
+        .select({
+          filterByFormula: `LOWER({Email}) = LOWER("${orderIdentifier}")`,
+          maxRecords: 1,
+        })
+        .firstPage();
+
+      if (customerRecords.length === 0) {
+        return 'No customer found with that email address.';
+      }
+      const customerId = customerRecords[0].id;
+
+      // Step 2: Find orders for that customer
+      records = await base('tblTq25QawVDHTTkV') // Orders table
+        .select({
+          filterByFormula: `FIND("${customerId}", ARRAYJOIN({Customer}))`,
+          fields: ['Order Number', 'Status', 'Order Date'],
+          maxRecords: 5,
+        })
+        .all();
+    } else {
+      // Find order by order number
+      records = await base('tblTq25QawVDHTTkV') // Orders table
+        .select({
+          filterByFormula: `LOWER({Order Number}) = LOWER("${orderIdentifier}")`,
+          fields: ['Order Number', 'Status', 'Order Date'],
+          maxRecords: 5,
+        })
+        .all();
+    }
 
     if (records.length === 0) {
       return 'No order found with that information. Please double-check your order number or email.';
