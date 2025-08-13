@@ -2,7 +2,10 @@ import { WebClient } from '@slack/web-api';
 import crypto from 'crypto';
 import type { VercelRequest } from '@vercel/node';
 
-const slackClient = new WebClient(process.env.SLACK_BOT_TOKEN);
+const slackToken = import.meta.env.VITE_SLACK_BOT_TOKEN || process.env.SLACK_BOT_TOKEN;
+const signingSecret = import.meta.env.VITE_SLACK_SIGNING_SECRET || process.env.SLACK_SIGNING_SECRET;
+
+const slackClient = new WebClient(slackToken);
 
 export const verifySlackRequest = (request: VercelRequest) => {
   const signature = request.headers['x-slack-signature'] as string;
@@ -13,7 +16,7 @@ export const verifySlackRequest = (request: VercelRequest) => {
     return false;
   }
 
-  const hmac = crypto.createHmac('sha256', process.env.SLACK_SIGNING_SECRET as string);
+  const hmac = crypto.createHmac('sha256', signingSecret as string);
   const base = `v0:${timestamp}:${body}`;
   hmac.update(base);
   const hash = `v0=${hmac.digest('hex')}`;
