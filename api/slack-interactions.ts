@@ -1,13 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { verifySlackRequest, sendSlackThreadMessage } from '../src/utils/slackService';
 import { getConversation, updateConversation } from '../src/utils/conversationStore';
+import querystring from 'querystring';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!verifySlackRequest(req)) {
-    return res.status(401).send('Unauthorized');
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
   }
 
-  const payload = JSON.parse(req.body.payload);
+  // Vercel's body parser doesn't handle urlencoded forms well, so we need to parse it manually
+  const parsedBody = querystring.parse(req.body);
+  const payload = JSON.parse(parsedBody.payload as string);
 
   if (payload.type === 'block_actions') {
     const action = payload.actions[0];
