@@ -34,13 +34,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const payload = JSON.parse(parsedBody.payload as string);
+    console.log('Received payload:', JSON.stringify(payload, null, 2));
 
     if (payload.type === 'block_actions') {
+      console.log('Processing block_actions...');
       const action = payload.actions[0];
       const conversationId = action.value;
+      console.log(`Action ID: ${action.action_id}, Conversation ID: ${conversationId}`);
+
       const conversation = getConversation(conversationId);
+      console.log('Retrieved conversation from store:', conversation);
 
       if (action.action_id === 'take_customer' && conversation) {
+        console.log('"take_customer" action confirmed for a valid conversation.');
         const agentId = payload.user.id;
         updateConversation(conversationId, { status: 'active', agentId });
 
