@@ -41,6 +41,7 @@ import GuidePage from "./pages/GuidePage";
 import { CityPage } from "./pages/CityPage";
 import SeasonalPage from "./pages/SeasonalPage";
 import InteractiveToolPage from "./pages/InteractiveToolPage";
+import SlackChatWidget from "./components/SlackChatWidget";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <SlackChatWidget />
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

@@ -12,7 +12,6 @@ import Footer from '@/components/Footer';
 import EmailPopup from '@/components/EmailPopup';
 import EmailSignup from '@/components/EmailSignup';
 import SEOHelmet from '@/components/SEOHelmet';
-import ChatlioWidget from '@/components/ChatlioWidget';
 
 const Index = () => {
   // Handle scrolling to sections when coming from other pages
@@ -99,7 +98,6 @@ const Index = () => {
         <CTA />
       </main>
       <Footer />
-      <ChatlioWidget widgetId="91a8309b-bfa6-4afa-7558-e0edad2a1362" />
     </div>
   );
 };
