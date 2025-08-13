@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sendSlackThreadMessage } from '../src/utils/slackService';
-import { getConversation, addMessageToConversation } from '../src/utils/conversationStore';
+import { getConversationRecord, updateConversationRecord } from '../src/utils/airtableConversations';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -8,17 +8,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { conversationId, message } = req.body;
-  const conversation = getConversation(conversationId);
+  const conversationRecord = await getConversationRecord(conversationId);
 
-  if (!conversation || !conversation.slackThreadId) {
+  if (!conversationRecord || !conversationRecord.fields['Slack Thread ID']) {
     return res.status(404).send('Conversation not found or not assigned to an agent');
   }
 
-  addMessageToConversation(conversationId, 'user', message);
+  const chatHistory = JSON.parse(conversationRecord.fields['Chat History'] as string || '[]');
+  chatHistory.push({ sender: 'user', text: message });
+
+  await updateConversationRecord(conversationRecord.id, {
+    'Chat History': JSON.stringify(chatHistory),
+  });
 
   await sendSlackThreadMessage(
     process.env.SLACK_CHANNEL_ID as string,
-    conversation.slackThreadId,
+    conversationRecord.fields['Slack Thread ID'] as string,
     message
   );
 

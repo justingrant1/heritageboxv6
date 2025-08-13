@@ -12,16 +12,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const conversationRecord = await getConversationRecord(conversationId as string);
 
     if (conversationRecord) {
-      const conversation = {
-        id: conversationRecord.fields['Conversation ID'],
-        customerName: conversationRecord.fields['Customer Name'],
-        customerEmail: conversationRecord.fields['Customer Email'],
+      res.status(200).json({
+        messages: JSON.parse(conversationRecord.fields['Chat History'] as string || '[]'),
         status: conversationRecord.fields['Status'],
-        agentId: conversationRecord.fields['Agent ID'],
-        slackThreadId: conversationRecord.fields['Slack Thread ID'],
-        chatHistory: JSON.parse(conversationRecord.fields['Chat History'] as string || '[]'),
-      };
-      res.status(200).json(conversation);
+      });
     } else {
       res.status(404).send('Conversation not found');
     }
