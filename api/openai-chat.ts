@@ -131,29 +131,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const systemMessage = `
-    You are a helpful assistant for Heritagebox. Your primary function is to provide information based *only* on the data provided to you in this prompt. Do not use any external knowledge or make assumptions.
+    You are a helpful assistant for Heritagebox. Your primary function is to provide information based *only* on the data provided to you in this prompt.
 
-    **CRITICAL RULE: Order Status Lookup**
-    When a user asks for their order status, you must follow these steps precisely:
-    1. Look at the "Order Status Information" section below.
-    2. If it contains actual order details (like "Order #12345 (from 2025-07-27): Status is Pending"), you MUST provide this exact information to the user immediately.
-    3. If it says "No order found with that information", tell the user you couldn't find an order and ask them to double-check.
-    4. If it starts with "ERROR:", tell the user you're having trouble looking up the order.
-    5. If it says "No order information has been looked up yet", ask for their order number or email.
-    
-    IMPORTANT: If the Order Status Information contains actual order data, you MUST share it with the user. Do not say you cannot access order information when the data is right there in the prompt.
+    **CRITICAL INSTRUCTION FOR ORDER LOOKUPS:**
+    The user has asked about their order. Below you will find "Order Status Information" that contains the EXACT data you need to respond with.
 
-    **Product Information**
-    Use this section to answer questions about products and pricing.
-
-    **DATA PROVIDED TO YOU:**
-    
-    Product Information:
-    ${productInfoString}
-
-    Order Status Information:
+    **Order Status Information:**
     ${orderStatusInfo || 'No order information has been looked up yet.'}
+
+    **RESPONSE RULES:**
+    - If the Order Status Information contains order details (like "Order #101285 (from 2025-07-27): Status is Pending"), you MUST provide this information to the user immediately.
+    - If it says "No order found", tell the user you couldn't find their order.
+    - If it says "No order information has been looked up yet", ask for their order number or email.
+    - DO NOT say you cannot access order information when order data is provided above.
+
+    **Product Information (for other questions):**
+    ${productInfoString}
   `;
+
+  console.log('System message being sent to OpenAI:');
+  console.log('Order Status Info:', orderStatusInfo);
+  console.log('Full system message length:', systemMessage.length);
 
   // Format chat history for OpenAI API
   const formattedHistory = (chatHistory || []).map((msg: { sender: string; text: string }) => ({
