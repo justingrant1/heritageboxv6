@@ -5,17 +5,19 @@ const SlackChatWidget: React.FC = () => {
   const [message, setMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [conversationStatus, setConversationStatus] = useState('bot');
+  const [conversationStatus, setConversationStatus] = useState('ai'); // 'ai', 'human', 'resolved'
   const chatMessagesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen && conversationId && conversationStatus !== 'resolved') {
+    if (isOpen && conversationId && conversationStatus === 'human') {
       const interval = setInterval(() => {
         fetch(`/api/chat-poll?conversationId=${conversationId}`)
           .then((res) => res.json())
           .then((data) => {
             setChatHistory(data.messages);
-            setConversationStatus(data.status);
+            if (data.status === 'resolved') {
+              setConversationStatus('resolved');
+            }
           });
       }, 2000);
       return () => clearInterval(interval);
@@ -30,33 +32,48 @@ const SlackChatWidget: React.FC = () => {
 
   const toggleChat = () => setIsOpen(!isOpen);
 
-  const handleSendMessage = async (isHumanRequest = false) => {
-    const messageToSend = isHumanRequest ? "I'd like to talk to a human." : message;
-    if (!messageToSend.trim()) return;
+  const handleSendMessage = async () => {
+    if (!message.trim()) return;
 
-    if (!conversationId) {
-      // Start a new conversation
-      const response = await fetch('/api/slack-notify', {
+    const newHistory = [...chatHistory, { sender: 'user', text: message }];
+    setChatHistory(newHistory);
+    setMessage('');
+
+    if (conversationStatus === 'ai') {
+      const response = await fetch('/api/openai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName: 'Guest',
-          customerEmail: 'guest@example.com',
-          initialMessage: messageToSend,
-        }),
+        body: JSON.stringify({ message, chatHistory: newHistory }),
       });
       const data = await response.json();
-      setConversationId(data.conversationId);
-      setChatHistory([{ sender: 'user', text: messageToSend }]);
+      setChatHistory([...newHistory, { sender: 'bot', text: data.response }]);
     } else {
-      // Send a message to an existing conversation
       await fetch('/api/send-to-slack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, message: messageToSend }),
+        body: JSON.stringify({ conversationId, message }),
       });
     }
-    setMessage('');
+  };
+
+  const handleHumanRequest = async () => {
+    setConversationStatus('human');
+    const humanRequestMessage = "I'd like to talk to a human.";
+    const newHistory = [...chatHistory, { sender: 'user', text: humanRequestMessage }];
+    setChatHistory(newHistory);
+
+    const response = await fetch('/api/slack-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerName: 'Guest',
+        customerEmail: 'guest@example.com',
+        initialMessage: humanRequestMessage,
+        chatHistory: newHistory,
+      }),
+    });
+    const data = await response.json();
+    setConversationId(data.conversationId);
   };
 
   return (
@@ -89,12 +106,14 @@ const SlackChatWidget: React.FC = () => {
                 placeholder="Type your message..."
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
               />
-              <button className="send-button" onClick={() => handleSendMessage()}>
+              <button className="send-button" onClick={handleSendMessage}>
                 ➤
               </button>
             </div>
             <div className="quick-actions">
-              <button className="quick-action" onClick={(e) => { e.preventDefault(); handleSendMessage(true); }}>Talk to a Human</button>
+              {conversationStatus === 'ai' && (
+                <button className="quick-action" onClick={handleHumanRequest}>Talk to a Human</button>
+              )}
             </div>
           </div>
         </div>
