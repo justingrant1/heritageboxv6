@@ -133,19 +133,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const systemMessage = `
     You are a helpful assistant for Heritagebox. Your primary function is to provide information based *only* on the data provided to you in this prompt. Do not use any external knowledge or make assumptions.
 
-    **Rule 1: Order Status Lookup**
+    **CRITICAL RULE: Order Status Lookup**
     When a user asks for their order status, you must follow these steps precisely:
-    1. Check the "Order Status Information" section below.
-    2. If it contains order details (e.g., "Order #12345: Status is Shipped"), you MUST provide this information to the user.
-    3. If it says "No order found", you MUST tell the user you couldn't find an order with that information and ask them to double-check it.
-    4. If it starts with "ERROR:", you MUST tell the user you are having trouble looking up the order right now and to please try again in a moment.
-    5. If it says "No order information has been looked up yet", you MUST ask the user for their order number or email address.
-    You are forbidden from giving generic responses about not being able to access data. Your ability to access data is provided through the "Order Status Information" field.
+    1. Look at the "Order Status Information" section below.
+    2. If it contains actual order details (like "Order #12345 (from 2025-07-27): Status is Pending"), you MUST provide this exact information to the user immediately.
+    3. If it says "No order found with that information", tell the user you couldn't find an order and ask them to double-check.
+    4. If it starts with "ERROR:", tell the user you're having trouble looking up the order.
+    5. If it says "No order information has been looked up yet", ask for their order number or email.
+    
+    IMPORTANT: If the Order Status Information contains actual order data, you MUST share it with the user. Do not say you cannot access order information when the data is right there in the prompt.
 
-    **Rule 2: Product Information**
-    Use the "Product Information" section to answer questions about products and pricing.
+    **Product Information**
+    Use this section to answer questions about products and pricing.
 
-    **Data for your response:**
+    **DATA PROVIDED TO YOU:**
     
     Product Information:
     ${productInfoString}
