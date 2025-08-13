@@ -43,7 +43,7 @@ const SlackChatWidget: React.FC = () => {
       const response = await fetch('/api/openai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, chatHistory: newHistory }),
+        body: JSON.stringify({ message, chatHistory: chatHistory }),
       });
       const data = await response.json();
       setChatHistory([...newHistory, { sender: 'bot', text: data.response }]);

@@ -96,9 +96,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let orderStatusInfo = '';
   const orderKeywords = ['order', 'status', 'project'];
-  if (orderKeywords.some(keyword => message.toLowerCase().includes(keyword))) {
-    // Simple regex to find an order number or email in the message
-    const identifierMatch = message.match(/(\b\w+@\w+\.\w+\b)|(\b\d{6,}\b)/);
+  const lastMessage = chatHistory && chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
+  const assistantJustAskedForInfo =
+    lastMessage &&
+    lastMessage.sender === 'bot' &&
+    (lastMessage.text.toLowerCase().includes('order number') || lastMessage.text.toLowerCase().includes('email'));
+
+  if (orderKeywords.some(keyword => message.toLowerCase().includes(keyword)) || assistantJustAskedForInfo) {
+    // Regex to find an email or a potential order number (6+ digits)
+    const identifierMatch = message.match(/(\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b)|(\b\d{6,}\b)/);
     if (identifierMatch) {
       console.log(`Found identifier: ${identifierMatch[0]}. Fetching order status...`);
       orderStatusInfo = await getOrderStatus(base, identifierMatch[0]);
