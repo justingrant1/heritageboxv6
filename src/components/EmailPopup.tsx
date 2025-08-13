@@ -39,48 +39,55 @@ const EmailPopup = () => {
     setIsSubmitting(true);
     
     try {
-      // Send email to info@heritagebox.com using our utility function
-      const emailPromise = sendEmailToHeritageBox({ 
-        email, 
-        referrer: document.referrer,
-        pageUrl: window.location.href
-      }, 'welcome-popup');
-
-      // Save to Airtable prospects table
-      const prospectPromise = fetch('/api/save-prospect', {
+      // Primary operation: Save to Airtable prospects table (fast and reliable)
+      const prospectResponse = await fetch('/api/save-prospect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           email,
-          source: 'Welcome Popup',
+          source: 'Email Popup', // This will map to "Contact Form" in Airtable
           pageUrl: window.location.href,
           message: '15% discount signup from welcome popup'
         })
       });
 
-      // Wait for both operations to complete
-      const [emailResult, prospectResponse] = await Promise.all([emailPromise, prospectPromise]);
-      
-      // Check if prospect save was successful (but don't fail if it wasn't)
+      // Check if prospect save was successful
       if (prospectResponse.ok) {
         console.log('✅ Prospect saved to Airtable successfully');
+        
+        // Mark that the user has seen the popup
+        localStorage.setItem('hasSeenEmailPopup', 'true');
+        
+        // Show success message immediately
+        toast.success("Thank you! Your 15% discount code has been sent to your email.");
+        
+        // Close the dialog
+        setOpen(false);
+        
+        // Send email notification in the background (don't wait for it)
+        sendEmailToHeritageBox({ 
+          email, 
+          referrer: document.referrer,
+          pageUrl: window.location.href
+        }, 'welcome-popup').then(() => {
+          console.log('✅ Background email notification sent successfully');
+        }).catch((error) => {
+          console.warn('⚠️ Background email notification failed (but user experience not affected):', error);
+        });
+        
       } else {
-        console.warn('⚠️ Failed to save prospect to Airtable, but continuing...');
+        // If Airtable save fails, still try to send email but show error
+        console.error('❌ Failed to save prospect to Airtable');
+        const errorData = await prospectResponse.text();
+        console.error('Error details:', errorData);
+        throw new Error('Failed to save your information. Please try again.');
       }
       
-      // Mark that the user has seen the popup
-      localStorage.setItem('hasSeenEmailPopup', 'true');
-      
-      // Show success message
-      toast.success("Thank you! Your 15% discount code has been sent to your email.");
-      
-      // Close the dialog
-      setOpen(false);
     } catch (error) {
-      console.error('Error sending email:', error);
-      toast.error(`Problem sending your request: ${error instanceof Error ? error.message : 'Please try again'}`);
+      console.error('Error in email popup submission:', error);
+      toast.error(`Problem processing your request: ${error instanceof Error ? error.message : 'Please try again'}`);
     } finally {
       setIsSubmitting(false);
     }
