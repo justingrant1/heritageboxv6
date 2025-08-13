@@ -94,7 +94,7 @@ const SlackChatWidget: React.FC = () => {
               </button>
             </div>
             <div className="quick-actions">
-              <button className="quick-action" onClick={() => handleSendMessage(true)}>Talk to a Human</button>
+              <button className="quick-action" onClick={(e) => { e.preventDefault(); handleSendMessage(true); }}>Talk to a Human</button>
             </div>
           </div>
         </div>
