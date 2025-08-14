@@ -39,10 +39,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (body.type === 'event_callback') {
     const { event } = body;
-    console.log('Received event:', JSON.stringify(event, null, 2));
-
-    if (event.type === 'message' && !event.bot_id && event.thread_ts) {
-      console.log(`Processing message in thread: ${event.thread_ts}`);
+    
+    // Only process threaded messages (replies), not the initial channel messages
+    // This prevents the bot from marking initial notifications as read
+    if (event.type === 'message' && !event.bot_id && event.thread_ts && event.thread_ts !== event.ts) {
+      console.log(`Processing threaded reply: ${event.thread_ts}`);
       const conversationRecord = await getConversationRecordByThreadId(event.thread_ts);
       
       if (conversationRecord) {
@@ -57,6 +58,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } else {
         console.warn(`No conversation record found for thread_ts: ${event.thread_ts}`);
       }
+    } else if (event.type === 'message' && !event.bot_id && !event.thread_ts) {
+      // Log initial messages but don't process them to avoid marking as read
+      console.log('Received initial channel message - not processing to preserve notifications');
     }
   }
 
