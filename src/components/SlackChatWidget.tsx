@@ -117,7 +117,7 @@ What would you like to know?`,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: collectedEmail,
-          source: 'Chat',
+          source: 'Website Chat',
           message: 'Customer requested human support via chat widget',
           pageUrl: window.location.href
         }),
