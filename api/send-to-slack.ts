@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   await sendSlackThreadMessage(
     process.env.SLACK_CHANNEL_ID as string,
     conversationRecord.fields['Slack Thread ID'] as string,
-    `💬 **Customer Message:** ${message}`
+    message
   );
 
   res.status(200).send('');

@@ -35,67 +35,24 @@ export const verifySlackRequest = (headers: VercelRequest['headers'], rawBody: s
 
 export const sendSlackMessage = async (channel: string, text: string, blocks?: any) => {
   try {
-    const result = await slackClient.chat.postMessage({
+    await slackClient.chat.postMessage({
       channel,
       text,
       blocks,
-      unfurl_links: false,
-      unfurl_media: false,
-      as_user: false,
-      parse: 'full',
-      link_names: true,
     });
-    return result;
   } catch (error) {
     console.error('Error sending Slack message:', error);
-    throw error;
   }
 };
 
 export const sendSlackThreadMessage = async (channel: string, thread_ts: string, text: string) => {
   try {
-    const result = await slackClient.chat.postMessage({
+    await slackClient.chat.postMessage({
       channel,
       thread_ts,
       text,
-      unfurl_links: false,
-      unfurl_media: false,
-      as_user: false,
-      parse: 'full',
-      link_names: true,
     });
-    return result;
   } catch (error) {
     console.error('Error sending Slack thread message:', error);
-    throw error;
-  }
-};
-
-export const sendUrgentSlackNotification = async (channel: string, text: string, blocks?: any) => {
-  try {
-    // Send an urgent notification that will definitely trigger alerts
-    const result = await slackClient.chat.postMessage({
-      channel,
-      text: `🚨 URGENT: ${text}`,
-      blocks: blocks ? [
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `🚨 *URGENT CUSTOMER REQUEST* 🚨`
-          }
-        },
-        ...blocks
-      ] : undefined,
-      unfurl_links: false,
-      unfurl_media: false,
-      as_user: false,
-      parse: 'full',
-      link_names: true,
-    });
-    return result;
-  } catch (error) {
-    console.error('Error sending urgent Slack notification:', error);
-    throw error;
   }
 };
