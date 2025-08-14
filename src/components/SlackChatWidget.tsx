@@ -19,6 +19,10 @@ What would you like to know?`,
   ]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationStatus, setConversationStatus] = useState('ai'); // 'ai', 'human', 'resolved'
+  const [humanHandoffStep, setHumanHandoffStep] = useState<'email' | 'question' | 'connecting' | 'connected' | null>(null);
+  const [collectedEmail, setCollectedEmail] = useState('');
+  const [collectedQuestion, setCollectedQuestion] = useState('');
+  const [emailError, setEmailError] = useState('');
   const chatMessagesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -74,28 +78,66 @@ What would you like to know?`,
     handleSendMessage(actionText);
   };
 
-  const handleHumanRequest = async () => {
-    setConversationStatus('human');
-    const humanRequestMessage = "I'd like to talk to a human.";
-    const connectingMessage = "Connecting you to a live person...";
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleHumanRequest = () => {
+    setHumanHandoffStep('email');
     const newHistory = [...chatHistory, 
-      { sender: 'user', text: humanRequestMessage },
-      { sender: 'bot', text: connectingMessage }
+      { sender: 'user', text: "I'd like to talk to a human." },
+      { sender: 'bot', text: "I'd be happy to connect you with our team! To get started, please provide your email address:" }
+    ];
+    setChatHistory(newHistory);
+  };
+
+  const handleEmailSubmit = () => {
+    if (!collectedEmail.trim()) {
+      setEmailError('Please enter your email address');
+      return;
+    }
+    if (!validateEmail(collectedEmail)) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+    
+    setEmailError('');
+    setHumanHandoffStep('question');
+    const newHistory = [...chatHistory, 
+      { sender: 'user', text: collectedEmail },
+      { sender: 'bot', text: "Thanks! Now, how can we help you today? Please describe what you need assistance with:" }
+    ];
+    setChatHistory(newHistory);
+  };
+
+  const handleQuestionSubmit = async () => {
+    if (!collectedQuestion.trim()) {
+      return;
+    }
+
+    setHumanHandoffStep('connecting');
+    const newHistory = [...chatHistory, 
+      { sender: 'user', text: collectedQuestion },
+      { sender: 'bot', text: "Perfect! We're connecting you with our team now. Someone will be with you shortly..." }
     ];
     setChatHistory(newHistory);
 
+    // Now send to Slack with real customer data
     const response = await fetch('/api/slack-notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        customerName: 'Guest',
-        customerEmail: 'guest@example.com',
-        initialMessage: humanRequestMessage,
+        customerName: collectedEmail.split('@')[0], // Use email prefix as name
+        customerEmail: collectedEmail,
+        initialMessage: collectedQuestion,
         chatHistory: newHistory,
       }),
     });
     const data = await response.json();
     setConversationId(data.conversationId);
+    setConversationStatus('human');
+    setHumanHandoffStep('connected');
   };
 
   return (
@@ -133,20 +175,66 @@ What would you like to know?`,
             )}
           </div>
           <div className="chat-input">
-            <div className="input-container">
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type your message..."
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              />
-              <button className="send-button" onClick={() => handleSendMessage()}>
-                ➤
-              </button>
-            </div>
+            {humanHandoffStep === 'email' ? (
+              <div className="input-container">
+                <input
+                  type="email"
+                  value={collectedEmail}
+                  onChange={(e) => setCollectedEmail(e.target.value)}
+                  placeholder="Enter your email address..."
+                  onKeyPress={(e) => e.key === 'Enter' && handleEmailSubmit()}
+                  style={{ borderColor: emailError ? '#ff4444' : '#eee' }}
+                />
+                <button className="send-button" onClick={handleEmailSubmit}>
+                  ➤
+                </button>
+              </div>
+            ) : humanHandoffStep === 'question' ? (
+              <div className="input-container">
+                <input
+                  type="text"
+                  value={collectedQuestion}
+                  onChange={(e) => setCollectedQuestion(e.target.value)}
+                  placeholder="How can we help you today?"
+                  onKeyPress={(e) => e.key === 'Enter' && handleQuestionSubmit()}
+                />
+                <button className="send-button" onClick={handleQuestionSubmit}>
+                  ➤
+                </button>
+              </div>
+            ) : humanHandoffStep === 'connecting' ? (
+              <div className="input-container">
+                <input
+                  type="text"
+                  placeholder="Please wait while we connect you..."
+                  disabled
+                  style={{ opacity: 0.6 }}
+                />
+                <button className="send-button" disabled style={{ opacity: 0.6 }}>
+                  ➤
+                </button>
+              </div>
+            ) : (
+              <div className="input-container">
+                <input
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                />
+                <button className="send-button" onClick={() => handleSendMessage()}>
+                  ➤
+                </button>
+              </div>
+            )}
+            {emailError && (
+              <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '5px' }}>
+                {emailError}
+              </div>
+            )}
           </div>
-          {conversationStatus === 'ai' && (
+          {conversationStatus === 'ai' && !humanHandoffStep && (
             <div className="chat-footer" style={{ padding: '10px 20px', borderTop: '1px solid #eee' }}>
               <button 
                 className="quick-action" 
