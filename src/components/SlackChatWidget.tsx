@@ -9,7 +9,7 @@ const SlackChatWidget: React.FC = () => {
       text: `Hi! I'm your Heritagebox AI assistant. I can help you with:
 
 📸 Photo digitization pricing
-📹 Video transfer options
+📹 Video transfer options  
 📦 Project status updates
 ⏰ Turnaround times
 
@@ -141,14 +141,18 @@ What would you like to know?`,
                 ➤
               </button>
             </div>
-            <div className="quick-actions">
-              {conversationStatus === 'ai' && (
-                <button className="quick-action" onClick={handleHumanRequest}>
-                  Talk to a Human
-                </button>
-              )}
-            </div>
           </div>
+          {conversationStatus === 'ai' && (
+            <div className="chat-footer" style={{ padding: '10px 20px', borderTop: '1px solid #eee' }}>
+              <button 
+                className="quick-action" 
+                onClick={handleHumanRequest}
+                style={{ width: '100%', textAlign: 'center' }}
+              >
+                Talk to a Human
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
