@@ -23,7 +23,9 @@ What would you like to know?`,
   const [collectedEmail, setCollectedEmail] = useState('');
   const [collectedQuestion, setCollectedQuestion] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const lastMessageCountRef = useRef(0);
 
   useEffect(() => {
     if (isOpen && conversationId && conversationStatus === 'human' && humanHandoffStep === 'connected') {
@@ -48,10 +50,27 @@ What would you like to know?`,
   }, [isOpen, conversationId, conversationStatus, humanHandoffStep]);
 
   useEffect(() => {
-    if (chatMessagesRef.current) {
+    // Only auto-scroll if new messages were added and user isn't manually scrolling
+    if (chatMessagesRef.current && !isUserScrolling && chatHistory.length > lastMessageCountRef.current) {
       chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
     }
-  }, [chatHistory]);
+    lastMessageCountRef.current = chatHistory.length;
+  }, [chatHistory, isUserScrolling]);
+
+  const handleScroll = () => {
+    if (!chatMessagesRef.current) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = chatMessagesRef.current;
+    const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10; // 10px tolerance
+    
+    // If user scrolled up from bottom, they're manually scrolling
+    if (!isAtBottom) {
+      setIsUserScrolling(true);
+    } else {
+      // If they scrolled back to bottom, resume auto-scroll
+      setIsUserScrolling(false);
+    }
+  };
 
   const toggleChat = () => setIsOpen(!isOpen);
 
@@ -178,7 +197,7 @@ What would you like to know?`,
               <p>Here to help with your digitization needs</p>
             </div>
           </div>
-          <div className="chat-messages" ref={chatMessagesRef}>
+          <div className="chat-messages" ref={chatMessagesRef} onScroll={handleScroll}>
             {chatHistory.map((msg, index) => (
               <div key={index} className={`message ${msg.sender}`}>
                 <div className="message-content">{msg.text}</div>
