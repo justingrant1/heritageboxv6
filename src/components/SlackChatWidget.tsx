@@ -13,7 +13,8 @@ const SlackChatWidget: React.FC = () => {
 📦 Project status updates
 ⏰ Turnaround times
 
-What would you like to know?`
+What would you like to know?`,
+      showQuickActions: true
     }
   ]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -111,6 +112,19 @@ What would you like to know?`
             {chatHistory.map((msg, index) => (
               <div key={index} className={`message ${msg.sender}`}>
                 <div className="message-content">{msg.text}</div>
+                {msg.showQuickActions && conversationStatus === 'ai' && (
+                  <div className="quick-actions" style={{ marginTop: '10px' }}>
+                    <button className="quick-action" onClick={() => handleQuickAction('What are your photo pricing options?')}>
+                      Photo Pricing
+                    </button>
+                    <button className="quick-action" onClick={() => handleQuickAction('Check my order status')}>
+                      Order Status
+                    </button>
+                    <button className="quick-action" onClick={() => handleQuickAction('What video transfer options do you have?')}>
+                      Video Transfer
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -129,20 +143,9 @@ What would you like to know?`
             </div>
             <div className="quick-actions">
               {conversationStatus === 'ai' && (
-                <>
-                  <button className="quick-action" onClick={() => handleQuickAction('What are your photo pricing options?')}>
-                    Photo Pricing
-                  </button>
-                  <button className="quick-action" onClick={() => handleQuickAction('Check my order status')}>
-                    Order Status
-                  </button>
-                  <button className="quick-action" onClick={() => handleQuickAction('What video transfer options do you have?')}>
-                    Video Transfer
-                  </button>
-                  <button className="quick-action" onClick={handleHumanRequest}>
-                    Talk to a Human
-                  </button>
-                </>
+                <button className="quick-action" onClick={handleHumanRequest}>
+                  Talk to a Human
+                </button>
               )}
             </div>
           </div>
