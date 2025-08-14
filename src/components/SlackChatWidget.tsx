@@ -98,7 +98,7 @@ What would you like to know?`,
     setChatHistory(newHistory);
   };
 
-  const handleEmailSubmit = () => {
+  const handleEmailSubmit = async () => {
     if (!collectedEmail.trim()) {
       setEmailError('Please enter your email address');
       return;
@@ -109,6 +109,24 @@ What would you like to know?`,
     }
     
     setEmailError('');
+    
+    // Save email to Prospects table
+    try {
+      await fetch('/api/save-prospect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: collectedEmail,
+          source: 'Chat',
+          message: 'Customer requested human support via chat widget',
+          pageUrl: window.location.href
+        }),
+      });
+    } catch (error) {
+      console.error('Error saving prospect:', error);
+      // Continue with the flow even if prospect saving fails
+    }
+    
     setHumanHandoffStep('question');
     const newHistory = [...chatHistory, 
       { sender: 'user', text: collectedEmail },
