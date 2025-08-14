@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sendSlackMessage } from '../src/utils/slackService';
+import { sendUrgentSlackNotification } from '../src/utils/slackService';
 import { createConversationRecord } from '../src/utils/airtableConversations';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -55,7 +55,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     },
   ];
 
-  await sendSlackMessage(process.env.SLACK_CHANNEL_ID as string, 'New customer support request', blocks);
+  await sendUrgentSlackNotification(
+    process.env.SLACK_CHANNEL_ID as string, 
+    `Customer ${customerName} needs immediate assistance!`, 
+    blocks
+  );
 
   res.status(200).json({ conversationId });
 }
