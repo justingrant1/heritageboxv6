@@ -57,6 +57,18 @@ What would you like to know?`,
     lastMessageCountRef.current = chatHistory.length;
   }, [chatHistory, isUserScrolling]);
 
+  // Scroll to bottom when chat widget is opened
+  useEffect(() => {
+    if (isOpen && chatMessagesRef.current) {
+      // Use setTimeout to ensure the DOM is fully rendered
+      setTimeout(() => {
+        if (chatMessagesRef.current) {
+          chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [isOpen]);
+
   const handleScroll = () => {
     if (!chatMessagesRef.current) return;
     
