@@ -32,33 +32,75 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const body = JSON.parse(rawBody);
 
+  // Handle URL verification challenge
   if (body.type === 'url_verification') {
     console.log('Responding to url_verification challenge.');
     return res.status(200).send(body.challenge);
   }
 
+  // Handle event callbacks
   if (body.type === 'event_callback') {
     const { event } = body;
     console.log('Received event:', JSON.stringify(event, null, 2));
 
-    if (event.type === 'message' && !event.bot_id && event.thread_ts) {
-      console.log(`Processing message in thread: ${event.thread_ts}`);
-      const conversationRecord = await getConversationRecordByThreadId(event.thread_ts);
+    // Handle messages in threads (agent replies)
+    if (event.type === 'message' && !event.bot_id && event.thread_ts && event.text) {
+      console.log(`Processing agent message in thread: ${event.thread_ts}`);
       
-      if (conversationRecord) {
-        console.log(`Found conversation record: ${conversationRecord.id}`);
-        const chatHistory = JSON.parse(conversationRecord.fields['Chat History'] as string || '[]');
-        chatHistory.push({ sender: 'agent', text: event.text });
+      try {
+        const conversationRecord = await getConversationRecordByThreadId(event.thread_ts);
         
-        await updateConversationRecord(conversationRecord.id, {
-          'Chat History': JSON.stringify(chatHistory),
-        });
-        console.log('Updated chat history in Airtable.');
-      } else {
-        console.warn(`No conversation record found for thread_ts: ${event.thread_ts}`);
+        if (conversationRecord) {
+          console.log(`Found conversation record: ${conversationRecord.id}`);
+          
+          // Get current chat history
+          const chatHistory = JSON.parse(conversationRecord.fields['Chat History'] as string || '[]');
+          
+          // Add agent message to history
+          const agentMessage = {
+            sender: 'agent',
+            text: event.text,
+            timestamp: new Date().toISOString(),
+            agent_id: event.user,
+            agent_name: conversationRecord.fields['Agent Name'] || 'Support Agent'
+          };
+          
+          chatHistory.push(agentMessage);
+          
+          // Update conversation record with new message
+          await updateConversationRecord(conversationRecord.id, {
+            'Chat History': JSON.stringify(chatHistory),
+            'Last Agent Message': event.text,
+            'Last Updated': new Date().toISOString(),
+          });
+          
+          console.log('Updated chat history in Airtable with agent message.');
+          
+          // Update conversation status to active if it wasn't already
+          if (conversationRecord.fields['Status'] !== 'active') {
+            await updateConversationRecord(conversationRecord.id, {
+              'Status': 'active'
+            });
+          }
+          
+        } else {
+          console.warn(`No conversation record found for thread_ts: ${event.thread_ts}`);
+        }
+        
+      } catch (error) {
+        console.error('Error processing agent message:', error);
       }
+    }
+    
+    // Handle other message types if needed
+    else if (event.type === 'message' && event.bot_id) {
+      console.log('Ignoring bot message to prevent loops');
+    }
+    
+    else if (event.type === 'message' && !event.thread_ts) {
+      console.log('Ignoring non-thread message');
     }
   }
 
-  res.status(200).send('');
+  res.status(200).send('OK');
 }
