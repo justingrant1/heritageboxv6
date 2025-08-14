@@ -6,14 +6,18 @@ const SlackChatWidget: React.FC = () => {
   const [chatHistory, setChatHistory] = useState<any[]>([
     {
       sender: 'bot',
-      text: `Hi! I'm your Heritagebox AI assistant. I can help you with:
-
-📸 Photo digitization pricing
-📹 Video transfer options  
-📦 Project status updates
-⏰ Turnaround times
-
-What would you like to know?`,
+      text: (
+        <div>
+          Hi! I'm your Heritagebox AI assistant. I can help you with:
+          <br /><br />
+          📸 Photo digitization pricing<br />
+          📹 Video transfer options<br />
+          📦 Project status updates<br />
+          ⏰ Turnaround times<br />
+          <br />
+          What would you like to know?
+        </div>
+      ),
       showQuickActions: true
     }
   ]);
