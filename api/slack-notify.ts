@@ -55,10 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     },
   ];
 
-  // Use @channel to ensure notifications are triggered
-  const notificationText = `🚨 @channel New customer support request from ${customerName}`;
-  
-  await sendSlackMessage(process.env.SLACK_CHANNEL_ID as string, notificationText, blocks);
+  await sendSlackMessage(process.env.SLACK_CHANNEL_ID as string, 'New customer support request', blocks);
 
   res.status(200).json({ conversationId });
 }

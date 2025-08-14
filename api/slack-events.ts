@@ -39,10 +39,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (body.type === 'event_callback') {
     const { event } = body;
-    
-    // COMPLETELY DISABLE message processing to prevent marking as read
-    // Only acknowledge the event but don't process it
-    console.log('Event received but not processed to preserve iOS notifications');
+    console.log('Received event:', JSON.stringify(event, null, 2));
+
+    if (event.type === 'message' && !event.bot_id && event.thread_ts) {
+      console.log(`Processing message in thread: ${event.thread_ts}`);
+      const conversationRecord = await getConversationRecordByThreadId(event.thread_ts);
+      
+      if (conversationRecord) {
+        console.log(`Found conversation record: ${conversationRecord.id}`);
+        const chatHistory = JSON.parse(conversationRecord.fields['Chat History'] as string || '[]');
+        chatHistory.push({ sender: 'agent', text: event.text });
+        
+        await updateConversationRecord(conversationRecord.id, {
+          'Chat History': JSON.stringify(chatHistory),
+        });
+        console.log('Updated chat history in Airtable.');
+      } else {
+        console.warn(`No conversation record found for thread_ts: ${event.thread_ts}`);
+      }
+    }
   }
 
   res.status(200).send('');

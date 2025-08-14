@@ -36,7 +36,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       'Email Signup': 'Newsletter',
       'Contact Form': 'Contact Form',
       'Website Chat': 'Website Chat',
-      'Chat': 'Website Chat',
       'Phone Call': 'Phone Call',
       'Email Inquiry': 'Email Inquiry',
       'Social Media': 'Social Media',
