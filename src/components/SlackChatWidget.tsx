@@ -26,20 +26,26 @@ What would you like to know?`,
   const chatMessagesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen && conversationId && conversationStatus === 'human') {
+    if (isOpen && conversationId && conversationStatus === 'human' && humanHandoffStep === 'connected') {
       const interval = setInterval(() => {
         fetch(`/api/chat-poll?conversationId=${conversationId}`)
           .then((res) => res.json())
           .then((data) => {
-            setChatHistory(data.messages);
+            // Only update if we have messages from the server
+            if (data.messages && data.messages.length > 0) {
+              setChatHistory(data.messages);
+            }
             if (data.status === 'resolved') {
               setConversationStatus('resolved');
             }
+          })
+          .catch((error) => {
+            console.error('Error polling chat:', error);
           });
       }, 2000);
       return () => clearInterval(interval);
     }
-  }, [isOpen, conversationId, conversationStatus]);
+  }, [isOpen, conversationId, conversationStatus, humanHandoffStep]);
 
   useEffect(() => {
     if (chatMessagesRef.current) {

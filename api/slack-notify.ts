@@ -7,11 +7,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).send('Method Not Allowed');
   }
 
-  const { customerName, customerEmail, initialMessage } = req.body;
+  const { customerName, customerEmail, initialMessage, chatHistory } = req.body;
   const conversationId = `conv_${Date.now()}`;
 
   try {
-    await createConversationRecord(conversationId, customerName, customerEmail);
+    await createConversationRecord(conversationId, customerName, customerEmail, chatHistory);
   } catch (error) {
     return res.status(500).send('Error creating conversation record');
   }

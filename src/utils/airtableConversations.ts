@@ -11,7 +11,7 @@ if (!airtableApiKey || !airtableBaseId) {
 const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
 const table = base(tableName);
 
-export const createConversationRecord = async (id: string, customerName: string, customerEmail: string) => {
+export const createConversationRecord = async (id: string, customerName: string, customerEmail: string, chatHistory?: any[]) => {
   try {
     const records = await table.create([
       {
@@ -20,7 +20,7 @@ export const createConversationRecord = async (id: string, customerName: string,
           'Customer Name': customerName,
           'Customer Email': customerEmail,
           'Status': 'waiting',
-          'Chat History': JSON.stringify([{ sender: 'user', text: 'Initial request' }]),
+          'Chat History': JSON.stringify(chatHistory || []),
         },
       },
     ]);
