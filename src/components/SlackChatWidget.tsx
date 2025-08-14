@@ -77,7 +77,11 @@ What would you like to know?`,
   const handleHumanRequest = async () => {
     setConversationStatus('human');
     const humanRequestMessage = "I'd like to talk to a human.";
-    const newHistory = [...chatHistory, { sender: 'user', text: humanRequestMessage }];
+    const connectingMessage = "Connecting you to a live person...";
+    const newHistory = [...chatHistory, 
+      { sender: 'user', text: humanRequestMessage },
+      { sender: 'bot', text: connectingMessage }
+    ];
     setChatHistory(newHistory);
 
     const response = await fetch('/api/slack-notify', {
@@ -112,21 +116,21 @@ What would you like to know?`,
             {chatHistory.map((msg, index) => (
               <div key={index} className={`message ${msg.sender}`}>
                 <div className="message-content">{msg.text}</div>
-                {msg.showQuickActions && conversationStatus === 'ai' && (
-                  <div className="quick-actions" style={{ marginTop: '10px' }}>
-                    <button className="quick-action" onClick={() => handleQuickAction('What are your photo pricing options?')}>
-                      Photo Pricing
-                    </button>
-                    <button className="quick-action" onClick={() => handleQuickAction('Check my order status')}>
-                      Order Status
-                    </button>
-                    <button className="quick-action" onClick={() => handleQuickAction('What video transfer options do you have?')}>
-                      Video Transfer
-                    </button>
-                  </div>
-                )}
               </div>
             ))}
+            {conversationStatus === 'ai' && chatHistory.length === 1 && (
+              <div className="quick-actions">
+                <button className="quick-action" onClick={() => handleQuickAction('How much does photo scanning cost?')}>
+                  Photo Pricing
+                </button>
+                <button className="quick-action" onClick={() => handleQuickAction('Check my order status')}>
+                  Order Status
+                </button>
+                <button className="quick-action" onClick={() => handleQuickAction('Video transfer options')}>
+                  Video Transfer
+                </button>
+              </div>
+            )}
           </div>
           <div className="chat-input">
             <div className="input-container">
