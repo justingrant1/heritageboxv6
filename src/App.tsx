@@ -1,6 +1,6 @@
 
 // TypeScript declarations for Chatlio widget
-// Force deployment update for guide route
+// Minor update for deployment
 declare global {
   namespace JSX {
     interface IntrinsicElements {
@@ -41,7 +41,6 @@ import GuidePage from "./pages/GuidePage";
 import { CityPage } from "./pages/CityPage";
 import SeasonalPage from "./pages/SeasonalPage";
 import InteractiveToolPage from "./pages/InteractiveToolPage";
-import PDFGuide from "./pages/PDFGuide";
 import SlackChatWidget from "./components/SlackChatWidget";
 
 const queryClient = new QueryClient();
@@ -66,7 +65,6 @@ const App = () => (
             {/* Programmatic SEO Routes - Order matters! */}
             {/* Static pages first */}
             <Route path="/about" element={<AboutUs />} />
-            <Route path="/guide" element={<PDFGuide />} />
             
             {/* Service combination pages (must come before single service pages) */}
             <Route path="/services/:serviceSlug/:locationSlug" element={<ServiceCombinationPage />} />
