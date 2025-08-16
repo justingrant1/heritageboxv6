@@ -69,10 +69,8 @@ export default async function handler(req: any, res: any) {
             confirm: 'true',
             return_url: 'https://heritagebox.com/order-confirmation',
             description: `Heritage Box Order #${orderNumber}`,
-            metadata: JSON.stringify({
-                order_number: orderNumber,
-                customer_email: orderDetails.customerInfo?.email || 'unknown'
-            })
+            'metadata[order_number]': orderNumber,
+            'metadata[customer_email]': orderDetails.customerInfo?.email || 'unknown'
         });
 
         const response = await fetch('https://api.stripe.com/v1/payment_intents', {
