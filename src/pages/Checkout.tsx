@@ -620,35 +620,36 @@ const Checkout = () => {
       // Send order details to Formspree
       await sendOrderDetailsToFormspree(orderData, "Order Completed");
 
-      // Save to Airtable in background (non-blocking) - don't wait for this to complete
-      // This prevents the checkout from hanging if Airtable is slow or fails
-      fetch('/api/create-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderDetails: orderData,
-          paymentId: result.paymentIntent?.id || `stripe_${Date.now()}`,
-          paymentStatus: 'succeeded',
-          actualAmount: parseFloat(calculateTotal())
-        }),
-      }).then(async (createOrderResponse) => {
-        try {
-          const createOrderResult = await createOrderResponse.json();
-          if (createOrderResult.success) {
-            console.log('✅ AIRTABLE SUCCESS - Order saved to Airtable:', createOrderResult);
-          } else {
-            console.error('❌ AIRTABLE ERROR - Failed to save to Airtable:', createOrderResult.error);
-          }
-        } catch (error) {
-          console.error('❌ AIRTABLE ERROR - Failed to parse response:', error);
-        }
-      }).catch((airtableError) => {
-        console.error('❌ AIRTABLE ERROR - Failed to call create-order API:', airtableError);
-      });
+      // Save to Airtable and get the real order number (blocking)
+      console.log('💾 AIRTABLE - Creating order and getting real order number...');
       
-      console.log('💾 AIRTABLE - Order save initiated in background (non-blocking)');
+      let realOrderNumber = orderId; // Fallback to frontend-generated ID
+      
+      try {
+        const createOrderResponse = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderDetails: orderData,
+            paymentId: result.paymentIntent?.id || `stripe_${Date.now()}`,
+            paymentStatus: 'succeeded',
+            actualAmount: parseFloat(calculateTotal())
+          }),
+        });
+
+        const createOrderResult = await createOrderResponse.json();
+        
+        if (createOrderResult.success && createOrderResult.orderNumber) {
+          realOrderNumber = createOrderResult.orderNumber;
+          console.log('✅ AIRTABLE SUCCESS - Got real order number from Airtable:', realOrderNumber);
+        } else {
+          console.error('❌ AIRTABLE ERROR - Failed to get order number, using fallback:', createOrderResult.error);
+        }
+      } catch (airtableError) {
+        console.error('❌ AIRTABLE ERROR - Failed to call create-order API, using fallback:', airtableError);
+      }
 
       console.log('✅ ORDER SUCCESS - Order processed and email sent successfully');
 
@@ -668,10 +669,10 @@ const Checkout = () => {
       }
       params.append('digitizingSpeed', digitizingSpeed);
       
-      // Navigate with both URL params and state containing the order ID and customer info
+      // Navigate with both URL params and state containing the REAL order ID from Airtable
       navigate('/order-confirmation?' + params.toString(), {
         state: {
-          orderNumber: orderId,
+          orderNumber: realOrderNumber, // Use the real order number from Airtable
           customerInfo: {
             firstName: validatedFormData.firstName,
             lastName: validatedFormData.lastName,
@@ -779,10 +780,41 @@ const Checkout = () => {
 
       console.log('💰 PAYPAL - Order data prepared for email:', orderData);
 
-      // Send order details to Formspree
-      await sendOrderDetailsToFormspree(orderData, "Order Completed");
+      // Save to Airtable and get the real order number (blocking) for PayPal too
+      console.log('💾 AIRTABLE - Creating PayPal order and getting real order number...');
+      
+      let realOrderNumber = orderId; // Fallback to frontend-generated ID
+      
+      try {
+        const createOrderResponse = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderDetails: orderData,
+            paymentId: `paypal_${Date.now()}`,
+            paymentStatus: 'succeeded',
+            actualAmount: parseFloat(calculateTotal())
+          }),
+        });
 
-      // Order saved to Airtable via email notification - no need for separate API call
+        const createOrderResult = await createOrderResponse.json();
+        
+        if (createOrderResult.success && createOrderResult.orderNumber) {
+          realOrderNumber = createOrderResult.orderNumber;
+          console.log('✅ AIRTABLE SUCCESS - Got real PayPal order number from Airtable:', realOrderNumber);
+        } else {
+          console.error('❌ AIRTABLE ERROR - Failed to get PayPal order number, using fallback:', createOrderResult.error);
+        }
+      } catch (airtableError) {
+        console.error('❌ AIRTABLE ERROR - Failed to call create-order API for PayPal, using fallback:', airtableError);
+      }
+
+      // Send order details to Formspree with the real order number
+      const updatedOrderData = { ...orderData, orderId: realOrderNumber };
+      await sendOrderDetailsToFormspree(updatedOrderData, "Order Completed");
+
       console.log('✅ ORDER SUCCESS - PayPal order processed and email sent successfully');
       
       setIsProcessing(false);
@@ -802,10 +834,10 @@ const Checkout = () => {
       }
       params.append('digitizingSpeed', digitizingSpeed);
       
-      // Navigate with both URL params and state containing the order ID and customer info
+      // Navigate with both URL params and state containing the REAL order ID from Airtable
       navigate('/order-confirmation?' + params.toString(), {
         state: {
-          orderNumber: orderId,
+          orderNumber: realOrderNumber, // Use the real order number from Airtable
           customerInfo: {
             firstName: validatedFormData.firstName,
             lastName: validatedFormData.lastName,
@@ -1185,8 +1217,243 @@ const Checkout = () => {
                               Remove
                             </Button>
                           </div>
+                )}
+              </div>
+
+              {/* Enhanced Order Summary */}
+              <div className="w-full lg:w-1/3 order-1 lg:order-2">
+                <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100 sticky top-8">
+                  <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+                    <div className="w-10 h-10 bg-gradient-to-r from-primary to-primary-light text-white flex items-center justify-center rounded-xl">
+                      <ShoppingBag size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">Order Summary</h2>
+                      <p className="text-sm text-gray-500">Review your selection</p>
+                    </div>
+                  </div>
+                  
+                  {/* Package Details */}
+                  <div className="space-y-6">
+                    <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl border border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className={`text-lg font-bold ${getTextColorClass()}`}>
+                          {packageDetails.name} Package
+                        </h3>
+                        {packageDetails.popular && (
+                          <span className="bg-gradient-to-r from-secondary to-secondary/80 text-primary text-xs font-bold px-3 py-1 rounded-full">
+                            Most Popular
+                          </span>
                         )}
                       </div>
+                      <p className="text-sm text-gray-600 mb-4">{packageDetails.description}</p>
+                      <div className="space-y-2">
+                        {packageDetails.features.map((feature, index) => (
+                          <div key={index} className="flex items-start gap-2">
+                            <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span className="text-sm text-gray-700">{feature}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
+                        <span className="font-semibold text-gray-900">Package Price</span>
+                        <span className="text-xl font-bold text-gray-900">{packageDetails.price}</span>
+                      </div>
+                    </div>
+
+                    {/* Digitizing Speed */}
+                    <div className="p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-2xl border border-purple-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="w-5 h-5 text-purple-600" />
+                        <h4 className="font-bold text-purple-900">Digitizing Speed</h4>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <span className="font-semibold text-purple-900">{getSelectedDigitizingOption().name}</span>
+                          <span className="text-sm text-purple-700 ml-2">({getSelectedDigitizingOption().time})</span>
+                        </div>
+                        <span className="font-bold text-purple-900">
+                          {getSelectedDigitizingOption().price === 0 ? 'Free' : `$${getSelectedDigitizingOption().price.toFixed(2)}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Add-ons */}
+                    <div className="space-y-4">
+                      <h4 className="font-bold text-gray-900 flex items-center gap-2">
+                        <Plus className="w-5 h-5" />
+                        Add-ons
+                      </h4>
+                      
+                      {/* USB Drives */}
+                      <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl border border-blue-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Usb className="w-5 h-5 text-blue-600" />
+                            <span className="font-semibold text-blue-900">USB Drives</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUsbChange(-1)}
+                              disabled={usbDrives === 0}
+                              className="h-8 w-8 p-0 border-blue-300 text-blue-600 hover:bg-blue-100"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <span className="w-8 text-center font-bold text-blue-900">{usbDrives}</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUsbChange(1)}
+                              className="h-8 w-8 p-0 border-blue-300 text-blue-600 hover:bg-blue-100"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-blue-700">Physical backup of your memories</span>
+                          <span className="font-bold text-blue-900">${(usbDrives * USB_DRIVE_PRICE).toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      {/* Cloud Backup */}
+                      <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-2xl border border-green-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Cloud className="w-5 h-5 text-green-600" />
+                            <span className="font-semibold text-green-900">Cloud Backup</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCloudChange(-1)}
+                              disabled={cloudBackup === 0}
+                              className="h-8 w-8 p-0 border-green-300 text-green-600 hover:bg-green-100"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <span className="w-8 text-center font-bold text-green-900">{cloudBackup}</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCloudChange(1)}
+                              disabled={cloudBackup === 1}
+                              className="h-8 w-8 p-0 border-green-300 text-green-600 hover:bg-green-100"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-green-700">Secure online storage (1 year)</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-green-600 line-through">${(cloudBackup * 29.99).toFixed(2)}</span>
+                            <span className="font-bold text-green-900">FREE</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Price Breakdown */}
+                    <div className="space-y-3 pt-4 border-t border-gray-200">
+                      <div className="flex justify-between text-gray-700">
+                        <span>Package</span>
+                        <span>${packageDetails.numericPrice.toFixed(2)}</span>
+                      </div>
+                      
+                      {getSelectedDigitizingOption().price > 0 && (
+                        <div className="flex justify-between text-gray-700">
+                          <span>{getSelectedDigitizingOption().name} Speed</span>
+                          <span>${getSelectedDigitizingOption().price.toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      {usbDrives > 0 && (
+                        <div className="flex justify-between text-gray-700">
+                          <span>USB Drives ({usbDrives}x)</span>
+                          <span>${(usbDrives * USB_DRIVE_PRICE).toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      {cloudBackup > 0 && (
+                        <div className="flex justify-between text-gray-700">
+                          <span>Cloud Backup ({cloudBackup} year)</span>
+                          <span className="text-green-600 font-semibold">FREE</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between text-lg font-semibold pt-2 border-t border-gray-200">
+                        <span>Subtotal</span>
+                        <span>${calculateSubtotal().toFixed(2)}</span>
+                      </div>
+                      
+                      {appliedCoupon && couponDiscount > 0 && (
+                        <div className="flex justify-between text-green-600 font-semibold">
+                          <span>Discount ({appliedCoupon})</span>
+                          <span>-${(calculateSubtotal() * (couponDiscount / 100)).toFixed(2)}</span>
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between text-2xl font-bold text-gray-900 pt-3 border-t-2 border-gray-300">
+                        <span>Total</span>
+                        <span className={getTextColorClass()}>${calculateTotal()}</span>
+                      </div>
+                    </div>
+
+                    {/* Security Badge */}
+                    <div className="flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl border border-gray-200">
+                      <Lock className="w-5 h-5 text-gray-600" />
+                      <span className="text-sm font-semibold text-gray-700">Secure SSL Encrypted Checkout</span>
+                    </div>
+
+                    {/* PayPal Option */}
+                    {showCardForm && (
+                      <div className="pt-4 border-t border-gray-200">
+                        <div className="text-center mb-4">
+                          <span className="text-sm text-gray-500">Or pay with</span>
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={handlePayPalPayment}
+                          disabled={isProcessing}
+                          className="w-full h-12 bg-[#0070ba] hover:bg-[#005ea6] text-white font-semibold rounded-xl transition-all"
+                        >
+                          {isProcessing ? (
+                            <>
+                              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                              Processing PayPal...
+                            </>
+                          ) : (
+                            <>
+                              <PaymentIcon className="h-5 w-5 mr-2" />
+                              Pay with PayPal
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      
+      <Footer />
+    </div>
+  );
+};
+
+export default Checkout;
                       
                       <div className="flex flex-col sm:flex-row justify-between gap-4">
                         <Button 
@@ -1275,238 +1542,3 @@ const Checkout = () => {
                   </div>
                 )}
               </div>
-              
-              {/* Enhanced Order Summary */}
-              <div className="w-full lg:w-1/3 order-1 lg:order-2">
-                <div className="sticky top-8">
-                  <div className="bg-white rounded-3xl p-6 md:p-8 shadow-lg border border-gray-100">
-                    <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
-                      <div className="w-10 h-10 bg-gradient-to-r from-secondary to-secondary-light text-white flex items-center justify-center rounded-xl">
-                        <ShoppingBag size={20} />
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-gray-900">Order Summary</h2>
-                        <p className="text-sm text-gray-500">Your memory preservation package</p>
-                      </div>
-                    </div>
-                    
-                    {/* Enhanced Package Display */}
-                    <div className="mb-6 bg-gradient-to-br from-gray-50 to-white p-6 rounded-2xl border border-gray-100">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <span className={`font-bold text-lg ${getTextColorClass()}`}>{packageDetails.name} Package</span>
-                          {packageDetails.popular && (
-                            <span className="ml-2 bg-secondary text-white text-xs font-bold px-2 py-1 rounded-full">
-                              POPULAR
-                            </span>
-                          )}
-                        </div>
-                        <span className="font-bold text-xl text-gray-900">{packageDetails.price}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-4">{packageDetails.description}</p>
-                      
-                      <div className="space-y-2">
-                        {packageDetails.features.slice(0, 3).map((feature, index) => (
-                          <div key={index} className="flex items-start gap-2">
-                            <Check size={16} className={`${getTextColorClass()} mt-0.5 shrink-0`} />
-                            <span className="text-sm text-gray-700">{feature}</span>
-                          </div>
-                        ))}
-                        {packageDetails.features.length > 3 && (
-                          <div className="text-sm text-primary font-medium">
-                            + {packageDetails.features.length - 3} more features included
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Enhanced Add-ons Section */}
-                    <div className="border-t border-gray-100 py-6 mb-6">
-                      <h3 className="font-bold text-lg mb-4 text-gray-900">Customize Your Order</h3>
-                      
-                      {/* USB Drive Add-on */}
-                      <div className="mb-6 p-4 rounded-2xl border border-gray-100 hover:border-gray-200 transition-colors">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-blue-100 text-blue-600 flex items-center justify-center rounded-lg">
-                              <Usb size={16} />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900">Custom USB Drive</p>
-                              <p className="text-xs text-gray-500">Physical backup for your memories</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="icon" 
-                              className="h-8 w-8 rounded-full border-2"
-                              onClick={() => handleUsbChange(-1)}
-                              disabled={usbDrives === 0}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="w-6 text-center font-semibold">{usbDrives}</span>
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="icon" 
-                              className="h-8 w-8 rounded-full border-2"
-                              onClick={() => handleUsbChange(1)}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        {usbDrives > 0 && (
-                          <div className="flex justify-between text-sm text-gray-600 bg-gray-50 p-2 rounded-lg">
-                            <span>{usbDrives} × $24.95</span>
-                            <span className="font-semibold">${(usbDrives * USB_DRIVE_PRICE).toFixed(2)}</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Cloud Backup Add-on */}
-                      <div className="mb-6 p-4 rounded-2xl border border-gray-100 hover:border-gray-200 transition-colors">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-purple-100 text-purple-600 flex items-center justify-center rounded-lg">
-                              <Cloud size={16} />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900">Online Gallery & Backup</p>
-                              <p className="text-xs text-gray-500">1 year included then $39.99/year</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="icon" 
-                              className="h-8 w-8 rounded-full border-2"
-                              onClick={() => handleCloudChange(-1)}
-                              disabled={cloudBackup === 0}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="w-6 text-center font-semibold">{cloudBackup}</span>
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="icon" 
-                              className="h-8 w-8 rounded-full border-2"
-                              onClick={() => handleCloudChange(1)}
-                              disabled={cloudBackup === 1}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        {cloudBackup > 0 && (
-                          <div className="flex justify-between text-sm bg-green-50 text-green-700 p-2 rounded-lg">
-                            <span>{cloudBackup} year included</span>
-                            <span className="font-semibold">Free</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Digitizing Speed Summary - Updated to show current selection */}
-                      <div className="p-4 rounded-2xl border border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-orange-100 text-orange-600 flex items-center justify-center rounded-lg">
-                              <Calendar size={16} />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900">Processing Speed</p>
-                              <p className="text-xs text-gray-500">
-                                {getSelectedDigitizingOption().name} ({getSelectedDigitizingOption().time})
-                              </p>
-                            </div>
-                          </div>
-                          <span className="font-semibold text-gray-900">
-                            {getSelectedDigitizingOption().price === 0 
-                              ? <span className="text-green-600 bg-green-100 px-2 py-1 rounded-full text-sm">Free</span> 
-                              : `$${getSelectedDigitizingOption().price.toFixed(2)}`
-                            }
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Enhanced Pricing Summary */}
-                    <div className="border-t border-gray-100 pt-6 mb-6 space-y-3">
-                      <div className="flex justify-between text-gray-700">
-                        <span>Subtotal</span>
-                        <span className="font-semibold">${calculateSubtotal().toFixed(2)}</span>
-                      </div>
-                      {appliedCoupon && (
-                        <div className="flex justify-between text-green-600">
-                          <span className="flex items-center gap-2">
-                            <Tag size={16} />
-                            {appliedCoupon} ({couponDiscount}% off)
-                          </span>
-                          <span className="font-semibold">-${(calculateSubtotal() * (couponDiscount / 100)).toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between text-gray-700">
-                        <span>Shipping</span>
-                        <span className="text-green-600 font-semibold">Free</span>
-                      </div>
-                    </div>
-                    
-                    {/* Enhanced Total */}
-                    <div className="border-t-2 border-gray-200 pt-4 mb-6">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xl font-bold text-gray-900">Total</span>
-                        <span className="text-2xl font-bold text-gray-900">${calculateTotal()}</span>
-                      </div>
-                    </div>
-                    
-                    {/* Enhanced Trust Indicators */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-100">
-                        <div className="w-8 h-8 bg-green-500 text-white flex items-center justify-center rounded-full">
-                          <Truck size={16} />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-green-800 text-sm">Free Shipping Both Ways</div>
-                          <div className="text-xs text-green-600">We handle all shipping costs</div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                        <div className="w-8 h-8 bg-blue-500 text-white flex items-center justify-center rounded-full">
-                          <Shield size={16} />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-blue-800 text-sm">100% Secure & Insured</div>
-                          <div className="text-xs text-blue-600">Your memories are protected</div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-100">
-                        <div className="w-8 h-8 bg-purple-500 text-white flex items-center justify-center rounded-full">
-                          <Award size={16} />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-purple-800 text-sm">Professional Quality</div>
-                          <div className="text-xs text-purple-600">Expert digitization service</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-      
-      <Footer />
-    </div>
-  );
-};
-
-export default Checkout;

@@ -153,7 +153,7 @@ const CheckoutForm = ({ onSuccess, buttonColorClass, isProcessing, amount }: Str
             </p>
           </div>
           
-          {/* Line 1: Card Number Only */}
+          {/* Line 1: Card Number */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
               Card Number
@@ -166,7 +166,7 @@ const CheckoutForm = ({ onSuccess, buttonColorClass, isProcessing, amount }: Str
             </div>
           </div>
           
-          {/* Line 2: Expiry, CVC, and ZIP Code */}
+          {/* Line 2: Expiry, CVC, ZIP */}
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">

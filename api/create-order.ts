@@ -319,55 +319,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        const { orderDetails, paymentId, paymentStatus, actualAmount, updateExisting, orderNumber: providedOrderNumber } = req.body;
+        const { orderDetails, paymentId, paymentStatus, actualAmount } = req.body;
 
         logEvent('create_order_data', {
             hasOrderDetails: !!orderDetails,
             paymentId,
             paymentStatus,
-            actualAmount,
-            updateExisting,
-            providedOrderNumber
+            actualAmount
         });
 
         if (!orderDetails) {
             return res.status(400).json({ success: false, error: 'Missing order details' });
         }
 
-        // If this is an update request, just return the existing order number
-        if (updateExisting && providedOrderNumber) {
-            logEvent('update_existing_order', { orderNumber: providedOrderNumber, paymentId });
-            
-            try {
-                // Try to update the existing order with payment info
-                const existingOrders = await base(ORDERS_TABLE).select({
-                    filterByFormula: `{Order Number} = "${providedOrderNumber}"`,
-                    maxRecords: 1
-                }).firstPage();
-
-                if (existingOrders.length > 0) {
-                    const orderId = existingOrders[0].id;
-                    await base(ORDERS_TABLE).update([{
-                        id: orderId,
-                        fields: {
-                            'Status': paymentStatus === 'succeeded' ? 'Paid' : 'Pending'
-                        }
-                    }]);
-                    logEvent('order_updated_with_payment', { orderId, paymentId });
-                }
-            } catch (updateError) {
-                logEvent('order_update_error', { error: updateError.message });
-                // Don't fail if update fails
-            }
-
-            return res.status(200).json({
-                success: true,
-                orderNumber: providedOrderNumber,
-                message: 'Order updated with payment information'
-            });
-        }
-
-        // Generate order number first (only for new orders)
+        // Generate order number first
         const orderNumber = await generateOrderNumber();
         
         // Convert legacy order data to normalized format
