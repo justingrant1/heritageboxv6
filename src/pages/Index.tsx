@@ -12,6 +12,8 @@ import Footer from '@/components/Footer';
 import EmailPopup from '@/components/EmailPopup';
 import EmailSignup from '@/components/EmailSignup';
 import SEOHelmet from '@/components/SEOHelmet';
+import SentryTestButton from '@/components/SentryTestButton';
+import SentryErrorBoundary from '@/components/SentryErrorBoundary';
 
 const Index = () => {
   // Handle scrolling to sections when coming from other pages
@@ -88,6 +90,11 @@ const Index = () => {
       <NavBar />
       <main>
         <Hero />
+        <SentryErrorBoundary>
+          <div className="container mx-auto px-4 py-4">
+            <SentryTestButton />
+          </div>
+        </SentryErrorBoundary>
         <CountdownTimer />
         <HowItWorks />
         <PackageComparison />
