@@ -37,12 +37,7 @@ Sentry error tracking has been successfully implemented in your React applicatio
 Your Sentry DSN is configured: `https://9c294a8d114361c4d14f915bac0d2435@o4509873209999360.ingest.us.sentry.io/4509873238573056`
 
 ### Sample Rates
-- **Development**: 
-  - Performance traces: 100%
-  - Session replays: 50%
-- **Production**: 
-  - Performance traces: 10%
-  - Session replays: 10%
+- **Session replays**: 10% (can be increased to 100% during development)
 - **Error replays**: 100% (always capture when errors occur)
 
 ### Features Enabled
