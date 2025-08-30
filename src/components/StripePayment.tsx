@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import {
   Elements,
-  CardNumberElement,
-  CardExpiryElement,
-  CardCvcElement,
+  CardElement,
   useStripe,
   useElements
 } from '@stripe/react-stripe-js';
@@ -39,7 +37,6 @@ const CheckoutForm = ({ onSuccess, buttonColorClass, isProcessing, amount }: Str
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [zipCode, setZipCode] = useState('');
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -48,9 +45,9 @@ const CheckoutForm = ({ onSuccess, buttonColorClass, isProcessing, amount }: Str
       return;
     }
 
-    const cardNumberElement = elements.getElement(CardNumberElement);
+    const cardElement = elements.getElement(CardElement);
 
-    if (!cardNumberElement) {
+    if (!cardElement) {
       return;
     }
 
@@ -60,12 +57,7 @@ const CheckoutForm = ({ onSuccess, buttonColorClass, isProcessing, amount }: Str
     try {
       const { error, paymentMethod } = await stripe.createPaymentMethod({
         type: 'card',
-        card: cardNumberElement,
-        billing_details: {
-          address: {
-            postal_code: zipCode,
-          },
-        },
+        card: cardElement,
       });
 
       if (error) {
@@ -95,7 +87,7 @@ const CheckoutForm = ({ onSuccess, buttonColorClass, isProcessing, amount }: Str
     }
   };
 
-  const elementOptions = {
+  const cardElementOptions = {
     style: {
       base: {
         fontSize: '16px',
@@ -146,67 +138,21 @@ const CheckoutForm = ({ onSuccess, buttonColorClass, isProcessing, amount }: Str
           {/* Instructions for card input */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-blue-800 font-medium">
-              💳 Enter your card details in the separate fields below
+              💳 Enter your card number, expiry date, CVC, and ZIP code in the field below
             </p>
             <p className="text-xs text-blue-600 mt-1">
-              All fields are required for secure payment processing.
+              All fields are required. Make sure to complete the ZIP code field at the end.
             </p>
           </div>
           
-          {/* Line 1: Card Number */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Card Number
-            </label>
-            <div 
-              className="p-4 border-2 border-gray-200 rounded-xl focus-within:border-primary transition-colors bg-white"
-              data-testid="card-number-element"
-            >
-              <CardNumberElement options={elementOptions} />
-            </div>
+          <div className="p-4 border-2 border-gray-200 rounded-xl focus-within:border-primary transition-colors bg-white">
+            <CardElement options={cardElementOptions} />
           </div>
           
-          {/* Line 2: Expiry, CVC, ZIP */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Expiry Date
-              </label>
-              <div 
-                className="p-4 border-2 border-gray-200 rounded-xl focus-within:border-primary transition-colors bg-white"
-                data-testid="card-expiry-element"
-              >
-                <CardExpiryElement options={elementOptions} />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                CVC
-              </label>
-              <div 
-                className="p-4 border-2 border-gray-200 rounded-xl focus-within:border-primary transition-colors bg-white"
-                data-testid="card-cvc-element"
-              >
-                <CardCvcElement options={elementOptions} />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                ZIP Code
-              </label>
-              <input
-                type="text"
-                value={zipCode}
-                onChange={(e) => setZipCode(e.target.value)}
-                placeholder="12345"
-                className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-primary transition-colors bg-white text-gray-700 placeholder-gray-400"
-                autoComplete="postal-code"
-                required
-                data-testid="zip-code-input"
-              />
-            </div>
+          {/* Additional ZIP code reminder */}
+          <div className="flex items-center gap-2 text-sm text-gray-600 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+            <span className="text-yellow-600">⚠️</span>
+            <span>Don't forget to enter your ZIP code in the card field above</span>
           </div>
           
           {error && (
