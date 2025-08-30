@@ -25,21 +25,44 @@ function logEvent(event: string, data: any) {
 }
 
 // Airtable configuration
-const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY || '';
-const AIRTABLE_BASE_ID = 'appFMHAYZrTskpmdX'; // HBOX2 base ID
+const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY || process.env.VITE_AIRTABLE_API_KEY || '';
+const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || process.env.VITE_AIRTABLE_BASE_ID || 'appFMHAYZrTskpmdX'; // HBOX2 base ID
 const CUSTOMERS_TABLE = 'tblUS7uf11axEmL56';
 const PRODUCTS_TABLE = 'tblJ0hgzvDXWgQGmK';
 const ORDERS_TABLE = 'tblTq25QawVDHTTkV';
 const ORDER_ITEMS_TABLE = 'tblgV4XGeQE3VL9CW';
 
-// Initialize Airtable
+// Initialize Airtable with enhanced error logging
 let base: any = null;
 if (AIRTABLE_API_KEY && AIRTABLE_BASE_ID) {
     try {
+        logEvent('airtable_initialization_attempt', {
+            hasApiKey: !!AIRTABLE_API_KEY,
+            apiKeyLength: AIRTABLE_API_KEY.length,
+            baseId: AIRTABLE_BASE_ID
+        });
+        
         base = new Airtable({ apiKey: AIRTABLE_API_KEY }).base(AIRTABLE_BASE_ID);
+        
+        logEvent('airtable_initialization_success', {
+            baseId: AIRTABLE_BASE_ID
+        });
     } catch (error) {
+        logEvent('airtable_initialization_error', {
+            error: error.message,
+            stack: error.stack,
+            apiKeyPresent: !!AIRTABLE_API_KEY,
+            baseIdPresent: !!AIRTABLE_BASE_ID
+        });
         console.error('Failed to initialize Airtable:', error);
     }
+} else {
+    logEvent('airtable_missing_credentials', {
+        hasApiKey: !!AIRTABLE_API_KEY,
+        hasBaseId: !!AIRTABLE_BASE_ID,
+        apiKeyType: typeof AIRTABLE_API_KEY,
+        baseIdType: typeof AIRTABLE_BASE_ID
+    });
 }
 
 // Generate unique order number starting from 100420, incrementing by 5
